@@ -1,8 +1,8 @@
 {
-  "name": "Mood – Cosmic Journal",
+  "name": "Mood \u2013 Cosmic Journal",
   "short_name": "Mood",
   "description": "Track your daily mood and watch your emotional constellation grow.",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#06082a",
   "theme_color": "#06082a",
@@ -20,5 +20,6 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "scope": "."
 }
