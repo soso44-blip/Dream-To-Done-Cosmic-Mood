@@ -1,0 +1,2112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mood">
+  <meta name="theme-color" content="#06082a">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#050312">
+<title>Cosmic Mood — ADHD Tracker</title>
+<link rel="manifest" href="manifest-mood.json">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Nunito',sans-serif;background:#050312;color:#f0eeff;-webkit-tap-highlight-color:transparent}
+
+:root{
+  --purple:#a78bfa;--pink:#f472b6;--teal:#2dd4bf;--gold:#fbbf24;
+  --indigo:#818cf8;--rose:#fb7185;
+  --surface:rgba(255,255,255,0.035);--surface2:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.09);--border2:rgba(255,255,255,0.16);
+  --text:#f0eeff;--text2:rgba(240,238,255,0.58);--text3:rgba(240,238,255,0.3);
+}
+
+/* ── BACKGROUND ─────────────────────────────── */
+#bgCanvas{position:fixed;inset:0;pointer-events:none;z-index:0;}
+.orb{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0;animation:orbDrift 12s ease-in-out infinite alternate;}
+.orb1{background:#3b0764;w:380px;h:380px;width:380px;height:380px;top:-140px;right:-80px;opacity:.45;}
+.orb2{background:#0f766e;width:280px;height:280px;bottom:-80px;left:-60px;opacity:.22;animation-delay:-5s;}
+.orb3{background:#7c2d64;width:200px;height:200px;top:50%;right:-40px;opacity:.18;animation-delay:-9s;}
+@keyframes orbDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(20px,30px) scale(1.08)}}
+
+/* ── APP SHELL ───────────────────────────────── */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;z-index:1;}
+
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px;padding-top:calc(env(safe-area-inset-top,0px) + 12px);
+  flex-shrink:0;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  background:rgba(5,3,18,0.6);backdrop-filter:blur(20px);
+}
+.app-title{
+  font-family:'Fredoka One',cursive;font-size:21px;
+  background:linear-gradient(100deg,#c4b5fd,#f472b6 60%,#fbbf24);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:.3px;
+}
+.streak-pill{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(251,191,36,.1);border:1.5px solid rgba(251,191,36,.22);
+  border-radius:100px;padding:5px 13px;
+  font-family:'Fredoka One',cursive;font-size:14px;color:#fbbf24;
+}
+
+/* ── PANELS ─────────────────────────────────── */
+#panels{flex:1;overflow:hidden;position:relative;}
+.panel{position:absolute;inset:0;display:none;flex-direction:column;}
+.panel.active{display:flex;}
+.pscroll{flex:1;overflow-y:auto;padding:0 15px 28px;-webkit-overflow-scrolling:touch;}
+.pscroll::-webkit-scrollbar{display:none;}
+
+/* ── TAB BAR ─────────────────────────────────── */
+.tabbar{
+  display:flex;padding:6px 8px;
+  padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));
+  background:rgba(5,3,18,.85);backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;
+}
+.tabbtn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;cursor:pointer;padding:6px 0;border-radius:12px;
+  transition:background .18s;outline:none;
+}
+.tabbtn:active{background:rgba(255,255,255,.05);}
+.tabico{font-size:19px;line-height:1;filter:grayscale(.7) brightness(.6);transition:filter .2s,transform .2s;}
+.tablbl{font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.3px;transition:color .2s;}
+.tabbtn.active .tabico{filter:none;transform:scale(1.12);}
+.tabbtn.active .tablbl{color:var(--purple);}
+
+/* ── LOG TAB ────────────────────────────────── */
+.log-q{
+  font-family:'Fredoka One',cursive;font-size:23px;text-align:center;
+  line-height:1.25;margin:18px 0 4px;
+  background:linear-gradient(135deg,#f0eeff 35%,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.log-time{text-align:center;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:18px;letter-spacing:.5px;}
+
+/* Quadrant */
+.quad{margin-bottom:12px;}
+.quad-hdr{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.quad-lbl{font-family:'Fredoka One',cursive;font-size:12px;letter-spacing:.4px;}
+.quad-line{flex:1;height:1px;background:var(--border);}
+.moods-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+
+.moodbtn{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:9px 3px 8px;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:14px;cursor:pointer;transition:all .2s;outline:none;
+}
+.moodbtn:active{transform:scale(.93);}
+.memo{font-size:20px;line-height:1;}
+.mnm{font-size:9px;font-weight:800;color:var(--text2);text-align:center;line-height:1.2;letter-spacing:.2px;}
+.moodbtn.sel{border-color:var(--mc);background:rgba(var(--mcr),.13);box-shadow:0 0 18px rgba(var(--mcr),.28);}
+.moodbtn.sel .mnm{color:var(--text);}
+
+/* Step 2 slide-down */
+.step2{max-height:0;overflow:hidden;opacity:0;transition:max-height .45s cubic-bezier(.4,0,.2,1),opacity .3s ease;}
+.step2.open{max-height:900px;opacity:1;}
+.step2-inner{
+  background:rgba(255,255,255,.025);border:1px solid var(--border);
+  border-radius:20px;padding:16px 15px;margin-top:6px;
+  display:flex;flex-direction:column;gap:14px;
+}
+
+.sel-display{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 13px;border-radius:12px;
+  background:rgba(255,255,255,.04);
+  border-left:3px solid var(--mc,var(--purple));
+}
+.sel-emoji{font-size:26px;}
+.sel-nm{font-family:'Fredoka One',cursive;font-size:17px;color:var(--text);}
+.sel-qt{font-size:11px;font-weight:700;color:var(--text2);}
+
+.slbl{font-family:'Fredoka One',cursive;font-size:13px;color:var(--text2);margin-bottom:5px;}
+.sopt{font-size:11px;font-weight:700;color:var(--text3);}
+
+/* Energy orbs */
+.eorbs{display:flex;gap:8px;justify-content:center;}
+.eorb{
+  width:46px;height:46px;border-radius:50%;
+  background:var(--surface2);border:2px solid var(--border);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:18px;transition:all .2s;outline:none;
+}
+.eorb:active{transform:scale(.88);}
+.eorb.lit{background:rgba(167,139,250,.18);border-color:var(--purple);box-shadow:0 0 14px rgba(167,139,250,.35);}
+
+/* Tags */
+.tags-wrap{display:flex;flex-wrap:wrap;gap:6px;}
+.tagbtn{
+  padding:6px 11px;border-radius:100px;
+  background:var(--surface);border:1.5px solid var(--border);
+  font-size:11px;font-weight:800;color:var(--text2);
+  cursor:pointer;transition:all .18s;outline:none;
+}
+.tagbtn:active{transform:scale(.94);}
+.tagbtn.sel{background:rgba(167,139,250,.14);border-color:var(--purple);color:var(--purple);}
+
+/* Note */
+.noteinput{
+  width:100%;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:14px;padding:11px 13px;
+  font-family:'Nunito',sans-serif;font-size:13px;font-weight:600;
+  color:var(--text);resize:none;outline:none;min-height:65px;
+}
+.noteinput::placeholder{color:var(--text3);}
+.noteinput:focus{border-color:rgba(167,139,250,.45);}
+
+/* Log button */
+.logbtn{
+  width:100%;padding:15px;border-radius:16px;border:none;
+  background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7,#ec4899);
+  background-size:300% 300%;
+  font-family:'Fredoka One',cursive;font-size:18px;color:#fff;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .18s,box-shadow .18s;
+  box-shadow:0 4px 24px rgba(124,58,237,.4);
+  animation:btnShimmer 5s ease infinite;outline:none;
+}
+.logbtn:active{transform:scale(.97);}
+@keyframes btnShimmer{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* ── JOURNEY TAB ─────────────────────────────── */
+.jnav{display:flex;align-items:center;justify-content:space-between;margin:14px 0 12px;}
+.jmonth{font-family:'Fredoka One',cursive;font-size:19px;color:var(--text);}
+.navbtn{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:5px 13px;color:var(--text2);font-size:17px;cursor:pointer;outline:none;}
+.navbtn:active{background:var(--surface2);}
+
+/* Calendar */
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px;}
+.calhdr{text-align:center;font-size:9px;font-weight:800;color:var(--text3);padding:3px 0;text-transform:uppercase;letter-spacing:.5px;}
+.calday{
+  aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;cursor:default;
+  transition:background .15s,border-color .15s;border:1.5px solid transparent;
+  position:relative;
+}
+.calday.hasentry{cursor:pointer;}
+.calday.hasentry:active{background:rgba(255,255,255,.07);}
+.calday.today{background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.35);}
+.calday.selected{background:rgba(167,139,250,.2);border-color:rgba(167,139,250,.6);}
+.calday.future{opacity:.28;pointer-events:none;}
+.cday-emo{font-size:17px;line-height:1;}
+.cday-num{font-size:9px;font-weight:800;color:var(--text3);line-height:1;}
+.calday.today .cday-num{color:var(--purple);}
+.calday.selected .cday-num{color:var(--purple);}
+.calday.empty-day .cday-num{color:var(--text3);}
+/* "+" hint on empty past days */
+.cday-add{font-size:11px;color:rgba(167,139,250,.35);line-height:1;}
+/* Multiple logs badge */
+.cday-badge{
+  position:absolute;top:2px;right:2px;
+  background:rgba(167,139,250,.5);border-radius:100px;
+  font-size:7px;font-weight:900;color:#fff;padding:1px 4px;line-height:1.4;
+}
+
+/* Day detail panel */
+.day-panel{
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:18px;padding:14px 15px;margin-bottom:14px;
+  animation:fadeSlideIn .25s ease;
+}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.day-panel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.day-panel-title{font-family:'Fredoka One',cursive;font-size:16px;color:var(--text);}
+.add-past-btn{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(167,139,250,.1);border:1.5px solid rgba(167,139,250,.28);
+  border-radius:100px;padding:6px 12px;
+  font-family:'Fredoka One',cursive;font-size:12px;color:var(--purple);
+  cursor:pointer;outline:none;transition:background .15s;
+}
+.add-past-btn:active{background:rgba(167,139,250,.2);}
+
+/* Entry cards inside day panel */
+.entrycard{
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:14px;padding:11px 13px;margin-bottom:8px;
+  display:flex;align-items:flex-start;gap:11px;
+}
+.entrycard:last-child{margin-bottom:0;}
+.entemoji{font-size:24px;flex-shrink:0;margin-top:1px;}
+.entinfo{flex:1;min-width:0;}
+.entnm{font-family:'Fredoka One',cursive;font-size:15px;}
+.entmeta{font-size:10px;font-weight:700;color:var(--text3);margin-top:2px;}
+.entnote{font-size:12px;font-weight:600;color:var(--text2);margin-top:4px;font-style:italic;line-height:1.4;}
+.enttags{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;}
+.enttag{font-size:10px;font-weight:800;padding:2px 7px;border-radius:100px;background:rgba(255,255,255,.05);color:var(--text3);}
+.del-entry-btn{background:none;border:none;font-size:14px;color:var(--text3);cursor:pointer;padding:2px 4px;flex-shrink:0;border-radius:6px;outline:none;align-self:flex-start;}
+.del-entry-btn:active{color:var(--rose);}
+
+/* Tap hint */
+.tap-hint{text-align:center;padding:16px;font-size:12px;font-weight:700;color:var(--text3);}
+
+/* ── RETRO LOG BOTTOM SHEET ────────────────────── */
+#retroOverlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;
+  display:none;backdrop-filter:blur(6px);
+}
+#retroSheet{
+  position:fixed;bottom:0;left:0;right:0;max-height:88vh;
+  background:#0e0b22;border-radius:24px 24px 0 0;
+  border-top:1px solid var(--border2);z-index:501;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:0 16px 32px;
+  padding-bottom:calc(32px + env(safe-area-inset-bottom));
+  transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
+  display:none;
+}
+#retroSheet.open{transform:translateY(0);display:block;}
+#retroSheet::-webkit-scrollbar{display:none;}
+.retro-handle{width:36px;height:4px;background:rgba(255,255,255,.15);border-radius:100px;margin:12px auto 16px;}
+.retro-title{font-family:'Fredoka One',cursive;font-size:19px;color:var(--text);margin-bottom:4px;text-align:center;}
+.retro-date-lbl{font-size:12px;font-weight:700;color:var(--purple);text-align:center;margin-bottom:18px;}
+/* Retro mood grid — 4 cols per row */
+.retro-quad{margin-bottom:10px;}
+.retro-quad-hdr{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.retro-quad-lbl{font-family:'Fredoka One',cursive;font-size:11px;letter-spacing:.3px;}
+.retro-quad-line{flex:1;height:1px;background:var(--border);}
+.retro-moods{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.retro-moodbtn{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 3px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:12px;cursor:pointer;transition:all .18s;outline:none;
+}
+.retro-moodbtn:active{transform:scale(.93);}
+.retro-moodbtn.rsel{border-color:var(--rmc);background:rgba(var(--rmcr),.13);box-shadow:0 0 14px rgba(var(--rmcr),.25);}
+.retro-memo{font-size:18px;line-height:1;}
+.retro-mnm{font-size:8px;font-weight:800;color:var(--text2);text-align:center;}
+.retro-moodbtn.rsel .retro-mnm{color:var(--text);}
+/* Retro step 2 */
+.retro-s2{max-height:0;overflow:hidden;opacity:0;transition:max-height .4s cubic-bezier(.4,0,.2,1),opacity .3s ease;}
+.retro-s2.open{max-height:700px;opacity:1;}
+.retro-s2-inner{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px;margin-top:6px;}
+.retro-slbl{font-family:'Fredoka One',cursive;font-size:13px;color:var(--text2);margin-bottom:4px;}
+.retro-eorbs{display:flex;gap:7px;justify-content:center;}
+.retro-eorb{width:42px;height:42px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .18s;outline:none;}
+.retro-eorb.lit{background:rgba(167,139,250,.18);border-color:var(--purple);box-shadow:0 0 12px rgba(167,139,250,.3);}
+.retro-tags{display:flex;flex-wrap:wrap;gap:5px;}
+.retro-tagbtn{padding:5px 10px;border-radius:100px;background:var(--surface);border:1.5px solid var(--border);font-size:11px;font-weight:800;color:var(--text2);cursor:pointer;transition:all .15s;outline:none;}
+.retro-tagbtn.rsel{background:rgba(167,139,250,.14);border-color:var(--purple);color:var(--purple);}
+.retro-noteinput{width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:600;color:var(--text);resize:none;outline:none;min-height:58px;}
+.retro-noteinput::placeholder{color:var(--text3);}
+.retro-savebtn{width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7,#ec4899);background-size:300% 300%;font-family:'Fredoka One',cursive;font-size:17px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 20px rgba(124,58,237,.35);animation:btnShimmer 5s ease infinite;outline:none;}
+.retro-savebtn:active{transform:scale(.97);}
+.retro-cancelbtn{width:100%;padding:11px;border-radius:14px;border:1px solid var(--border);background:none;font-family:'Fredoka One',cursive;font-size:15px;color:var(--text2);cursor:pointer;margin-top:6px;outline:none;}
+.retro-cancelbtn:active{background:var(--surface);}
+
+/* ── PATTERNS TAB ────────────────────────────── */
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:15px;margin-bottom:11px;}
+.pcard-t{font-family:'Fredoka One',cursive;font-size:14px;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:5px;}
+
+.freqrow{display:flex;align-items:center;gap:7px;margin-bottom:7px;}
+.freqlbl{font-size:11px;font-weight:700;color:var(--text2);width:85px;flex-shrink:0;display:flex;align-items:center;gap:4px;overflow:hidden;}
+.freqbg{flex:1;background:var(--surface2);border-radius:4px;height:7px;}
+.freqbar{height:7px;border-radius:4px;transition:width .5s ease;}
+.freqct{font-size:10px;font-weight:800;color:var(--text3);width:18px;text-align:right;flex-shrink:0;}
+
+.wbars{display:flex;gap:5px;align-items:flex-end;height:55px;}
+.wbwrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;}
+.wbar{width:100%;border-radius:3px;transition:height .4s ease;min-height:4px;}
+.wbrlbl{font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;}
+
+.insightcard{
+  border-radius:14px;padding:13px 15px;margin-bottom:9px;
+  background:linear-gradient(135deg,rgba(91,33,182,.15),rgba(236,72,153,.08));
+  border:1px solid rgba(167,139,250,.2);
+}
+.insico{font-size:20px;margin-bottom:5px;display:block;}
+.instxt{font-family:'Fredoka One',cursive;font-size:15px;color:var(--text);margin-bottom:3px;}
+.inssub{font-size:11px;font-weight:600;color:var(--text2);line-height:1.45;}
+
+/* ── COSMOS TAB ──────────────────────────────── */
+#panel-cosmos{overflow:hidden;}
+#cosmosHero{flex-shrink:0;padding:8px 15px 4px;}
+#cosmosScroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 15px 80px;}
+#cosmosScroll::-webkit-scrollbar{display:none;}
+.canvaswrap{
+  border:1px solid rgba(167,139,250,.18);
+  border-radius:18px;overflow:hidden;margin:6px 0 0;
+  height:min(88vw,360px);
+  box-shadow:0 0 40px rgba(90,30,180,.18),inset 0 0 60px rgba(5,3,18,.5);
+  animation:cosmosGlow 6s ease-in-out infinite;
+}
+#constellCanvas{display:block;width:100%;height:100%;}
+.cosmos-title-row{display:flex;align-items:center;justify-content:space-between;}
+.cosmos-title{font-family:'Fredoka One',cursive;font-size:15px;color:var(--text2);}
+.cosmos-sub{font-size:10px;font-weight:700;color:var(--text3);line-height:1.4;}
+.caxes{display:flex;justify-content:space-between;padding:0 4px;margin-top:4px;}
+.caxlbl{font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.3px;}
+@keyframes twinkle{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes cosmosGlow{0%,100%{box-shadow:0 0 40px rgba(90,30,180,.18),inset 0 0 60px rgba(5,3,18,.5)}50%{box-shadow:0 0 60px rgba(120,50,220,.28),inset 0 0 60px rgba(5,3,18,.5)}}
+
+.statsgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;}
+.statbox{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 6px;text-align:center;}
+.statnum{font-family:'Fredoka One',cursive;font-size:28px;}
+.statlbl{font-size:9px;font-weight:800;color:var(--text3);margin-top:2px;letter-spacing:.3px;text-transform:uppercase;}
+
+.ach-hdr{font-family:'Fredoka One',cursive;font-size:17px;color:var(--text);margin-bottom:11px;display:flex;align-items:center;gap:7px;}
+.achgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:24px;}
+.achitem{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:11px 5px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:15px;transition:all .25s;
+}
+.achitem.unlocked{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.35);box-shadow:0 0 14px rgba(167,139,250,.14);}
+.achico{font-size:22px;filter:grayscale(1) brightness(.35);}
+.achitem.unlocked .achico{filter:none;}
+.achnm{font-family:'Fredoka One',cursive;font-size:10px;color:var(--text3);text-align:center;line-height:1.2;}
+.achitem.unlocked .achnm{color:var(--text2);}
+.achdesc{font-size:9px;font-weight:700;color:var(--text3);text-align:center;line-height:1.3;}
+
+/* ── EMPTY STATE ─────────────────────────────── */
+.empty{text-align:center;padding:44px 20px;}
+.emptyico{font-size:44px;display:block;margin-bottom:11px;}
+.emptytxt{font-family:'Fredoka One',cursive;font-size:17px;color:var(--text2);margin-bottom:7px;}
+.emptysub{font-size:12px;font-weight:600;color:var(--text3);line-height:1.5;}
+
+/* ── SHARED ──────────────────────────────────── */
+.ptitle{
+  font-family:'Fredoka One',cursive;font-size:22px;
+  background:linear-gradient(135deg,#f0eeff 35%,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin:16px 0 14px;
+}
+.secttitle{font-family:'Fredoka One',cursive;font-size:15px;color:var(--text2);margin-bottom:9px;}
+
+/* ── CELEBRATIONS ────────────────────────────── */
+@keyframes epop{0%{transform:scale(0) rotate(-18deg)}60%{transform:scale(1.22) rotate(7deg)}80%{transform:scale(.92) rotate(-3deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes cflash{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+@keyframes sin{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.cflash{position:fixed;inset:0;z-index:899;pointer-events:none;background:radial-gradient(ellipse at center,rgba(167,139,250,.22) 0,transparent 70%);animation:cflash .7s ease-out forwards;}
+.epop-anim{animation:epop .5s cubic-bezier(.34,1.56,.64,1) .1s both;}
+.sin-anim{animation:sin .3s ease .3s both;}
+.sin2-anim{animation:sin .3s ease .45s both;}
+
+/* Streak badge pulse on new streak */
+@keyframes badgepop{0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(1)}}
+.badgepop{animation:badgepop .4s ease;}
+
+/* ── WEEKLY SUMMARY ──────────────────────────── */
+#weeklyOverlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:600;
+  display:none;align-items:flex-end;justify-content:center;
+  backdrop-filter:blur(10px);
+}
+#weeklyOverlay.open{display:flex;}
+#weeklySheet{
+  background:linear-gradient(165deg,#0e0b22,#180d36);
+  border-radius:28px 28px 0 0;border-top:1.5px solid rgba(167,139,250,.4);
+  padding:18px 18px;width:100%;max-width:500px;
+  padding-bottom:calc(24px + env(safe-area-inset-bottom));
+  animation:slideUp .35s cubic-bezier(.4,0,.2,1);
+  max-height:92vh;overflow-y:auto;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.wsum-handle{width:36px;height:4px;background:rgba(255,255,255,.14);border-radius:100px;margin:0 auto 18px;}
+.wsum-title{font-family:'Fredoka One',cursive;font-size:22px;text-align:center;
+  background:linear-gradient(100deg,#c4b5fd,#f472b6 60%,#fbbf24);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:2px;}
+.wsum-range{font-size:11px;font-weight:700;color:var(--text3);text-align:center;margin-bottom:18px;letter-spacing:.4px;}
+.wsum-hero{text-align:center;padding:10px 0 14px;}
+.wsum-hero-emo{font-size:54px;display:block;margin-bottom:7px;animation:epop .5s cubic-bezier(.34,1.56,.64,1) both;}
+.wsum-hero-mood{font-family:'Fredoka One',cursive;font-size:22px;}
+.wsum-hero-sub{font-size:11px;font-weight:700;color:var(--text3);margin-top:4px;}
+.wsum-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.wsum-stat{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:12px 4px;text-align:center;}
+.wsum-stat-n{font-family:'Fredoka One',cursive;font-size:22px;}
+.wsum-stat-l{font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+.wsum-msg{background:linear-gradient(135deg,rgba(91,33,182,.18),rgba(236,72,153,.1));border:1px solid rgba(167,139,250,.22);border-radius:14px;padding:13px 16px;text-align:center;font-family:'Fredoka One',cursive;font-size:15px;color:var(--text);line-height:1.45;margin-bottom:14px;}
+.wsum-patterns-btn{width:100%;padding:13px;border-radius:14px;border:none;background:linear-gradient(135deg,#5b21b6,#a855f7,#ec4899);background-size:200%;font-family:'Fredoka One',cursive;font-size:16px;color:#fff;cursor:pointer;outline:none;margin-bottom:8px;display:block;}
+.wsum-close-btn{width:100%;padding:11px;border-radius:14px;border:1px solid var(--border);background:none;font-family:'Fredoka One',cursive;font-size:14px;color:var(--text2);cursor:pointer;outline:none;display:block;}
+.wsum-brand{text-align:center;margin-top:14px;font-size:10px;font-weight:700;color:var(--text3);}
+
+/* ── EXPORT BUTTON ───────────────────────────── */
+.export-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
+  padding:11px;border-radius:14px;border:none;
+  background:linear-gradient(135deg,rgba(91,33,182,.7),rgba(168,85,247,.7),rgba(236,72,153,.6));
+  font-family:'Fredoka One',cursive;
+  font-size:15px;color:#fff;cursor:pointer;margin-top:6px;
+  outline:none;transition:all .2s;
+  box-shadow:0 2px 18px rgba(124,58,237,.35);
+  text-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+.export-btn:active{transform:scale(.97);box-shadow:0 1px 8px rgba(124,58,237,.2);}
+.export-btn:disabled{opacity:.6;cursor:wait;}
+
+/* ── DELETE CONFIRM ──────────────────────────── */
+.del-confirm{display:flex;align-items:center;gap:8px;padding:7px 0 2px;animation:fadeSlideIn .18s ease;}
+.del-confirm-txt{font-size:11px;font-weight:700;color:var(--rose);flex:1;}
+.del-yes{padding:5px 11px;border-radius:100px;border:1.5px solid var(--rose);background:rgba(251,113,133,.12);color:var(--rose);font-size:11px;font-weight:800;cursor:pointer;outline:none;}
+.del-no{padding:5px 11px;border-radius:100px;border:1px solid var(--border);background:none;color:var(--text3);font-size:11px;font-weight:800;cursor:pointer;outline:none;}
+.del-btn{background:none;border:none;font-size:15px;color:var(--text3);cursor:pointer;padding:2px 5px;border-radius:6px;outline:none;flex-shrink:0;transition:color .15s;}
+.del-btn:active{color:var(--rose);}
+
+/* ── APP FOOTER BRAND ────────────────────────── */
+.app-brand{text-align:center;font-size:9px;font-weight:700;color:rgba(167,139,250,.28);letter-spacing:.8px;padding:4px 0 2px;flex-shrink:0;}
+/* ── ONBOARDING ──────────────────────────────── */
+#onboardOverlay{position:fixed;inset:0;background:#050312;z-index:1000;display:none;flex-direction:column;}
+#onboardOverlay.active{display:flex;}
+.ob-bg-orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;}
+.ob-bg-orb1{background:#3b0764;width:300px;height:300px;top:-80px;right:-60px;opacity:.5;}
+.ob-bg-orb2{background:#0f766e;width:220px;height:220px;bottom:-60px;left:-40px;opacity:.3;}
+.ob-slides{flex:1;overflow:hidden;position:relative;}
+.ob-slide{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:28px 24px;
+  opacity:0;transform:translateX(40px);
+  transition:opacity .35s ease,transform .35s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;overflow-y:auto;
+}
+.ob-slide.active{opacity:1;transform:translateX(0);pointer-events:all;}
+.ob-slide.exit{opacity:0;transform:translateX(-40px);}
+.ob-icon{font-size:60px;margin-bottom:18px;display:block;animation:floatBrain 3.5s ease-in-out infinite;}
+.ob-title{
+  font-family:'Fredoka One',cursive;font-size:26px;text-align:center;margin-bottom:11px;
+  background:linear-gradient(135deg,#f0eeff 30%,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.ob-body{font-size:13px;font-weight:600;color:var(--text2);text-align:center;line-height:1.7;max-width:290px;}
+.ob-quads{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:320px;margin:16px 0;}
+.ob-qcard{border-radius:14px;padding:11px 8px;text-align:center;border:1.5px solid;}
+.ob-qemo{font-size:20px;display:block;margin-bottom:3px;}
+.ob-qname{font-family:'Fredoka One',cursive;font-size:13px;margin-bottom:3px;}
+.ob-qdesc{font-size:10px;font-weight:700;color:var(--text3);line-height:1.35;}
+.ob-tagline{
+  font-size:11px;font-weight:700;color:var(--text3);text-align:center;
+  border-top:1px solid var(--border);padding-top:12px;margin-top:4px;max-width:280px;line-height:1.5;
+}
+.ob-steps{width:100%;max-width:300px;margin:14px 0;}
+.ob-device-lbl{font-family:'Fredoka One',cursive;font-size:13px;color:var(--text2);margin:10px 0 6px;}
+.ob-step{
+  display:flex;align-items:flex-start;gap:9px;margin-bottom:7px;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:9px 11px;
+}
+.ob-step-n{
+  width:20px;height:20px;border-radius:50%;
+  background:rgba(167,139,250,.2);border:1.5px solid rgba(167,139,250,.4);
+  font-family:'Fredoka One',cursive;font-size:11px;color:var(--purple);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.ob-step-t{font-size:11px;font-weight:700;color:var(--text2);line-height:1.4;}
+.ob-step-t b{color:var(--purple);font-weight:900;}
+.ob-privacy{
+  background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.2);
+  border-radius:12px;padding:10px 13px;font-size:11px;font-weight:700;
+  color:rgba(45,212,191,.8);text-align:center;line-height:1.5;max-width:300px;margin-top:4px;
+}
+/* Bottom nav */
+.ob-nav{
+  padding:14px 22px;padding-bottom:calc(14px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;
+  border-top:1px solid rgba(255,255,255,.05);background:rgba(5,3,18,.6);backdrop-filter:blur(12px);
+}
+.ob-dots{display:flex;gap:7px;margin-bottom:2px;}
+.ob-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .25s;}
+.ob-dot.active{background:var(--purple);width:20px;border-radius:4px;}
+.ob-next{
+  width:100%;max-width:320px;padding:13px;border-radius:14px;border:none;
+  background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7,#ec4899);background-size:300%;
+  font-family:'Fredoka One',cursive;font-size:17px;color:#fff;cursor:pointer;outline:none;
+  animation:btnShimmer 5s ease infinite;
+}
+.ob-next:active{transform:scale(.97);}
+.ob-skip{background:none;border:none;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;outline:none;padding:3px 10px;}
+
+/* ── QUADRANT STREAK BANNER ──────────────────── */
+.qs-banner{
+  display:flex;align-items:center;gap:10px;
+  border-radius:13px;padding:9px 13px;margin-bottom:14px;
+  border:1.5px solid;animation:fadeSlideIn .3s ease;
+}
+.qs-emo{font-size:22px;flex-shrink:0;}
+.qs-info{flex:1;}
+.qs-main{font-family:'Fredoka One',cursive;font-size:14px;}
+.qs-sub{font-size:10px;font-weight:700;color:var(--text3);margin-top:1px;}
+.qs-count{font-family:'Fredoka One',cursive;font-size:22px;flex-shrink:0;}
+#quadStreakWrap{transition:opacity .3s;}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
+
+<div id="app">
+  <!-- ── HEADER ── -->
+  <header>
+    <div class="app-title">✨ Cosmic Mood</div>
+    <div id="streakPill" class="streak-pill">🔥 <span id="streakNum">0</span> days</div>
+  </header>
+
+  <!-- ── PANELS ── -->
+  <div id="panels">
+
+    <!-- LOG -->
+    <div id="panel-log" class="panel active">
+      <div class="pscroll">
+        <div class="log-q" id="logQ">How are you feeling<br>right now?</div>
+        <div class="log-time" id="logTime"></div>
+        <div id="quadStreakWrap"></div>
+
+        <div class="quad" id="qcharged">
+          <div class="quad-hdr"><span class="quad-lbl" style="color:#fbbf24">⚡ Charged</span><div class="quad-line"></div></div>
+          <div class="moods-row" id="mr-charged"></div>
+        </div>
+        <div class="quad" id="qserene">
+          <div class="quad-hdr"><span class="quad-lbl" style="color:#2dd4bf">🌙 Serene</span><div class="quad-line"></div></div>
+          <div class="moods-row" id="mr-serene"></div>
+        </div>
+        <div class="quad" id="qstorming">
+          <div class="quad-hdr"><span class="quad-lbl" style="color:#fb923c">🌪️ Storming</span><div class="quad-line"></div></div>
+          <div class="moods-row" id="mr-storming"></div>
+        </div>
+        <div class="quad" id="qfading">
+          <div class="quad-hdr"><span class="quad-lbl" style="color:#94a3b8">🌫️ Fading</span><div class="quad-line"></div></div>
+          <div class="moods-row" id="mr-fading"></div>
+        </div>
+
+        <!-- Something else button -->
+        <button class="moodbtn" id="mb-custom" onclick="pickMood('custom')"
+          style="width:100%;flex-direction:row;gap:8px;justify-content:center;margin-bottom:6px;border-style:dashed;--mc:#a78bfa;--mcr:167,139,250">
+          <span class="memo">💭</span>
+          <span class="mnm" style="font-size:12px;letter-spacing:.3px">Something else...</span>
+        </button>
+
+        <!-- Step 2 -->
+        <div class="step2" id="step2">
+          <div class="step2-inner">
+            <div class="sel-display" id="selDisplay">
+              <span class="sel-emoji" id="selEmo"></span>
+              <div><div class="sel-nm" id="selNm"></div><div class="sel-qt" id="selQt"></div></div>
+            </div>
+            <!-- Custom mood text input (shown only when Something else is picked) -->
+            <div id="customMoodWrap" style="display:none">
+              <div class="slbl">💭 Name your feeling</div>
+              <input type="text" id="customMoodInput" class="noteinput" style="min-height:unset;height:44px;font-size:15px;" placeholder="e.g. Overstimulated, Nostalgic, RSD..." maxlength="30" oninput="document.getElementById('selNm').textContent=this.value||'Something else'">
+            </div>
+            <div>
+              <div class="slbl">⚡ Energy level</div>
+              <div class="eorbs" id="eorbs"></div>
+            </div>
+            <div>
+              <div class="slbl">🏷️ What's going on? <span class="sopt">(optional)</span></div>
+              <div class="tags-wrap" id="tagsWrap"></div>
+            </div>
+            <div>
+              <div class="slbl">💬 Note to future you <span class="sopt">(optional)</span></div>
+              <textarea class="noteinput" id="moodNote" placeholder="What's on your mind? 🌙" maxlength="220" rows="3"></textarea>
+            </div>
+            <button class="logbtn" onclick="submitLog()">🌌 Log to the Cosmos</button>
+          </div>
+        </div>
+        <div style="height:14px"></div>
+      </div>
+    </div>
+
+    <!-- JOURNEY -->
+    <div id="panel-journey" class="panel">
+      <div class="pscroll">
+        <h2 class="ptitle">Your Journey</h2>
+        <div id="journeyContent"></div>
+      </div>
+    </div>
+
+    <!-- PATTERNS -->
+    <div id="panel-patterns" class="panel">
+      <div class="pscroll">
+        <h2 class="ptitle">Your Patterns</h2>
+        <div id="patternsContent"></div>
+      </div>
+    </div>
+
+    <!-- COSMOS -->
+    <div id="panel-cosmos" class="panel">
+      <div id="cosmosHero"></div>
+      <div class="pscroll" id="cosmosScroll">
+        <div id="cosmosContent"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── TAB BAR ── -->
+  <nav class="tabbar">
+    <button class="tabbtn active" onclick="switchTab('log')"><span class="tabico">🌙</span><span class="tablbl">Log</span></button>
+    <button class="tabbtn" onclick="switchTab('journey')"><span class="tabico">📅</span><span class="tablbl">Journey</span></button>
+    <button class="tabbtn" onclick="switchTab('patterns')"><span class="tabico">🔭</span><span class="tablbl">Patterns</span></button>
+    <button class="tabbtn" onclick="switchTab('cosmos')"><span class="tabico">🌌</span><span class="tablbl">Cosmos</span></button>
+  </nav>
+  <div class="app-brand">© DREAMSTODONE</div>
+</div>
+
+<!-- ── WEEKLY SUMMARY ── -->
+<div id="weeklyOverlay">
+  <div id="weeklySheet">
+    <div class="wsum-handle"></div>
+    <div class="wsum-title">✨ Your Week in Stars</div>
+    <div id="wsumRange" class="wsum-range"></div>
+    <div class="wsum-hero">
+      <span id="wsumEmo" class="wsum-hero-emo"></span>
+      <div id="wsumMood" class="wsum-hero-mood"></div>
+      <div id="wsumSub" class="wsum-hero-sub"></div>
+    </div>
+    <div class="wsum-stats" id="wsumStats"></div>
+    <div class="wsum-msg" id="wsumMsg"></div>
+    <button class="wsum-patterns-btn" onclick="closeWeeklySummary('patterns')">🔭 See my full patterns</button>
+    <button class="wsum-close-btn" onclick="closeWeeklySummary()">Close for now</button>
+    <div class="wsum-brand">© DreamsToDone · Cosmic Mood Tracker</div>
+  </div>
+</div>
+
+<!-- ── ONBOARDING ── -->
+<div id="onboardOverlay">
+  <div class="ob-bg-orb ob-bg-orb1"></div>
+  <div class="ob-bg-orb ob-bg-orb2"></div>
+  <div class="ob-slides" id="obSlides">
+
+    <!-- Slide 1: Welcome -->
+    <div class="ob-slide active" id="ob-slide-0">
+      <span class="ob-icon">🌌</span>
+      <div class="ob-title">Welcome to<br>Cosmic Mood</div>
+      <div class="ob-body">The ADHD-friendly mood tracker that turns your feelings into a personal star map.<br><br>Quick to log. Beautiful to explore. Built for the way your brain actually works.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:18px;max-width:300px;">
+        <span style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:800;color:var(--purple)">✅ No account</span>
+        <span style="background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.2);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:800;color:#2dd4bf">📴 Works offline</span>
+        <span style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:800;color:#fbbf24">🔒 100% private</span>
+        <span style="background:rgba(244,114,182,.08);border:1px solid rgba(244,114,182,.2);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:800;color:#f472b6">💜 ADHD-designed</span>
+      </div>
+    </div>
+
+    <!-- Slide 2: The 4 Quadrants -->
+    <div class="ob-slide" id="ob-slide-1">
+      <div class="ob-title">Your 4 Mood Zones</div>
+      <div class="ob-body">Every mood lives in one of four zones based on your energy and how it feels.</div>
+      <div class="ob-quads">
+        <div class="ob-qcard" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.3);">
+          <span class="ob-qemo">⚡</span>
+          <div class="ob-qname" style="color:#fbbf24">Charged</div>
+          <div class="ob-qdesc">High energy · Positive<br>Excited, Focused, Confident</div>
+        </div>
+        <div class="ob-qcard" style="background:rgba(45,212,191,.07);border-color:rgba(45,212,191,.3);">
+          <span class="ob-qemo">🌙</span>
+          <div class="ob-qname" style="color:#2dd4bf">Serene</div>
+          <div class="ob-qdesc">Low energy · Positive<br>Calm, Peaceful, Grateful</div>
+        </div>
+        <div class="ob-qcard" style="background:rgba(251,146,60,.07);border-color:rgba(251,146,60,.3);">
+          <span class="ob-qemo">🌪️</span>
+          <div class="ob-qname" style="color:#fb923c">Storming</div>
+          <div class="ob-qdesc">High energy · Difficult<br>Anxious, Overwhelmed, Restless</div>
+        </div>
+        <div class="ob-qcard" style="background:rgba(148,163,184,.07);border-color:rgba(148,163,184,.25);">
+          <span class="ob-qemo">🌫️</span>
+          <div class="ob-qname" style="color:#94a3b8">Fading</div>
+          <div class="ob-qdesc">Low energy · Difficult<br>Sad, Drained, Numb</div>
+        </div>
+      </div>
+      <div class="ob-tagline">There are no bad moods here — only honest data about your experience 💜</div>
+    </div>
+
+    <!-- Slide 3: Install -->
+    <div class="ob-slide" id="ob-slide-2">
+      <span class="ob-icon">📲</span>
+      <div class="ob-title">Works like a real app</div>
+      <div class="ob-body">Install it to your home screen for instant access — no app store needed.</div>
+      <div class="ob-steps">
+        <div class="ob-device-lbl">📱 iPhone / iPad</div>
+        <div class="ob-step"><div class="ob-step-n">1</div><div class="ob-step-t">Open this page in <b>Safari</b></div></div>
+        <div class="ob-step"><div class="ob-step-n">2</div><div class="ob-step-t">Tap the <b>Share button</b> (□↑) at the bottom</div></div>
+        <div class="ob-step"><div class="ob-step-n">3</div><div class="ob-step-t">Tap <b>"Add to Home Screen"</b> → Add</div></div>
+        <div class="ob-device-lbl">🤖 Android</div>
+        <div class="ob-step"><div class="ob-step-n">1</div><div class="ob-step-t">Open in <b>Chrome</b></div></div>
+        <div class="ob-step"><div class="ob-step-n">2</div><div class="ob-step-t">Tap <b>⋮ menu</b> → <b>"Add to Home screen"</b></div></div>
+      </div>
+      <div class="ob-privacy">🔒 Your data never leaves your device.<br>No servers. No tracking. Fully private.</div>
+    </div>
+
+  </div>
+  <div class="ob-nav">
+    <div class="ob-dots" id="obDots">
+      <div class="ob-dot active"></div>
+      <div class="ob-dot"></div>
+      <div class="ob-dot"></div>
+    </div>
+    <button class="ob-next" id="obNextBtn" onclick="obNext()">Next →</button>
+    <button class="ob-skip" id="obSkipBtn" onclick="obSkip()">Skip for now</button>
+  </div>
+</div>
+
+<!-- ── RETRO LOG SHEET ── -->
+<div id="retroOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;backdrop-filter:blur(6px);" onclick="if(event.target===this)closeRetroLog()">
+  <div id="retroSheet">
+  </div>
+</div>
+<div id="celebOverlay" style="display:none;position:fixed;inset:0;z-index:900;pointer-events:none;">
+  <canvas id="celebCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></canvas>
+  <div id="celebCard" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.5);opacity:0;
+    background:linear-gradient(135deg,#0c0820,#180d3a);border:2px solid rgba(167,139,250,.5);
+    border-radius:28px;padding:26px 34px;text-align:center;min-width:255px;max-width:310px;
+    box-shadow:0 0 60px rgba(167,139,250,.25),0 20px 60px rgba(0,0,0,.55);
+    transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .25s ease;">
+    <div id="cEmo" style="font-size:54px;line-height:1;margin-bottom:9px;display:block;"></div>
+    <div id="cMsg" style="font-family:'Fredoka One',cursive;font-size:23px;color:#fff;margin-bottom:5px;line-height:1.2;"></div>
+    <div id="cSub" style="font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;color:rgba(167,139,250,.9);margin-bottom:9px;line-height:1.45;"></div>
+    <div id="cStreak" style="font-family:'Fredoka One',cursive;font-size:15px;color:#fbbf24;"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════
+const MOODS=[
+  {id:'excited',  name:'Excited',      emoji:'⚡', quad:'charged',  val:2,  nrg:5, color:'#fbbf24', rgb:'251,191,36'},
+  {id:'joyful',   name:'Joyful',       emoji:'✨', quad:'charged',  val:2,  nrg:4, color:'#f472b6', rgb:'244,114,182'},
+  {id:'focused',  name:'Focused',      emoji:'🎯', quad:'charged',  val:1,  nrg:4, color:'#60a5fa', rgb:'96,165,250'},
+  {id:'confident',name:'Confident',    emoji:'💫', quad:'charged',  val:2,  nrg:3, color:'#a78bfa', rgb:'167,139,250'},
+  {id:'calm',     name:'Calm',         emoji:'🌙', quad:'serene',   val:1,  nrg:2, color:'#2dd4bf', rgb:'45,212,191'},
+  {id:'content',  name:'Content',      emoji:'🌸', quad:'serene',   val:1,  nrg:2, color:'#86efac', rgb:'134,239,172'},
+  {id:'peaceful', name:'Peaceful',     emoji:'🪷', quad:'serene',   val:2,  nrg:1, color:'#93c5fd', rgb:'147,197,253'},
+  {id:'grateful', name:'Grateful',     emoji:'💜', quad:'serene',   val:2,  nrg:2, color:'#c4b5fd', rgb:'196,181,253'},
+  {id:'anxious',  name:'Anxious',      emoji:'🌀', quad:'storming', val:-2, nrg:4, color:'#fb923c', rgb:'251,146,60'},
+  {id:'overwhelmed',name:'Overwhelmed',emoji:'🌊', quad:'storming', val:-2, nrg:5, color:'#f87171', rgb:'248,113,113'},
+  {id:'restless', name:'Restless',     emoji:'🌪️',quad:'storming', val:-1, nrg:4, color:'#fb7185', rgb:'251,113,133'},
+  {id:'frustrated',name:'Frustrated',  emoji:'🔥', quad:'storming', val:-1, nrg:3, color:'#ef4444', rgb:'239,68,68'},
+  {id:'sad',      name:'Sad',          emoji:'💧', quad:'fading',   val:-2, nrg:2, color:'#64748b', rgb:'100,116,139'},
+  {id:'drained',  name:'Drained',      emoji:'🪫', quad:'fading',   val:-1, nrg:1, color:'#475569', rgb:'71,85,105'},
+  {id:'numb',     name:'Numb',         emoji:'❄️', quad:'fading',   val:-2, nrg:1, color:'#94a3b8', rgb:'148,163,184'},
+  {id:'disconnected',name:'Far Away',  emoji:'🌑', quad:'fading',   val:-1, nrg:2, color:'#6b7280', rgb:'107,114,128'},
+  // ── Expanded charged ──
+  {id:'motivated',  name:'Motivated',  emoji:'💪', quad:'charged',  val:2,  nrg:5, color:'#f59e0b', rgb:'245,158,11'},
+  {id:'playful',    name:'Playful',    emoji:'🎈', quad:'charged',  val:2,  nrg:3, color:'#34d399', rgb:'52,211,153'},
+  {id:'proud',      name:'Proud',      emoji:'🏅', quad:'charged',  val:2,  nrg:3, color:'#eab308', rgb:'234,179,8'},
+  {id:'inspired',   name:'Inspired',   emoji:'💡', quad:'charged',  val:1,  nrg:4, color:'#38bdf8', rgb:'56,189,248'},
+  // ── Expanded serene ──
+  {id:'cosy',       name:'Cosy',       emoji:'☕', quad:'serene',   val:1,  nrg:1, color:'#d97706', rgb:'217,119,6'},
+  {id:'reflective', name:'Reflective', emoji:'💭', quad:'serene',   val:1,  nrg:2, color:'#818cf8', rgb:'129,140,248'},
+  {id:'loved',      name:'Loved',      emoji:'🥰', quad:'serene',   val:2,  nrg:2, color:'#f9a8d4', rgb:'249,168,212'},
+  {id:'relieved',   name:'Relieved',   emoji:'😌', quad:'serene',   val:2,  nrg:2, color:'#6ee7b7', rgb:'110,231,183'},
+  // ── Expanded storming ──
+  {id:'irritable',  name:'Irritable',  emoji:'😤', quad:'storming', val:-1, nrg:3, color:'#f97316', rgb:'249,115,22'},
+  {id:'panicked',   name:'Panicked',   emoji:'😰', quad:'storming', val:-2, nrg:5, color:'#b91c1c', rgb:'185,28,28'},
+  {id:'scattered',  name:'Scattered',  emoji:'😵', quad:'storming', val:-1, nrg:4, color:'#c084fc', rgb:'192,132,252'},
+  {id:'guilty',     name:'Guilty',     emoji:'😣', quad:'storming', val:-1, nrg:2, color:'#78716c', rgb:'120,113,108'},
+  // ── Expanded fading ──
+  {id:'lonely',     name:'Lonely',     emoji:'😔', quad:'fading',   val:-2, nrg:2, color:'#6b7280', rgb:'107,114,128'},
+  {id:'bored',      name:'Bored',      emoji:'🥱', quad:'fading',   val:-1, nrg:1, color:'#9ca3af', rgb:'156,163,175'},
+  {id:'hopeless',   name:'Hopeless',   emoji:'😞', quad:'fading',   val:-2, nrg:1, color:'#475569', rgb:'71,85,105'},
+  {id:'ashamed',    name:'Ashamed',    emoji:'😖', quad:'fading',   val:-2, nrg:2, color:'#92400e', rgb:'146,64,14'},
+];
+
+const TAGS=[
+  {id:'meds',      label:'💊 Meds'},
+  {id:'poor_sleep',label:'😴 Poor Sleep'},
+  {id:'good_sleep',label:'⭐ Good Sleep'},
+  {id:'exercise',  label:'🏃 Exercise'},
+  {id:'ate_well',  label:'🥗 Ate Well'},
+  {id:'caffeine',  label:'☕ Caffeine'},
+  {id:'hyperfocus',label:'🧠 Hyperfocus'},
+  {id:'sensory',   label:'😵 Sensory OL'},
+  {id:'rsd',       label:'💔 RSD'},
+  {id:'social',    label:'👥 Social'},
+  {id:'outdoors',  label:'☀️ Outdoors'},
+  {id:'creative',  label:'🎨 Creative'},
+  {id:'music',     label:'🎵 Music'},
+  {id:'sick',      label:'🤒 Sick'},
+  {id:'period',    label:'🌸 Period'},
+];
+
+const ACHIEVEMENTS=[
+  {id:'first_star', icon:'⭐',name:'First Star',  desc:'Log 1st mood'},
+  {id:'meteor',     icon:'☄️',name:'Meteor',      desc:'3-day streak'},
+  {id:'moon',       icon:'🌕',name:'Full Moon',   desc:'7-day streak'},
+  {id:'cluster',    icon:'🌌',name:'Star Cluster',desc:'14-day streak'},
+  {id:'nebula',     icon:'🌠',name:'Nebula',      desc:'30-day streak'},
+  {id:'explorer',   icon:'🔭',name:'Explorer',    desc:'10 entries'},
+  {id:'planet',     icon:'🪐',name:'Planet',      desc:'25 entries'},
+  {id:'supernova',  icon:'💥',name:'Supernova',   desc:'50 entries'},
+  {id:'spectrum',   icon:'🌈',name:'Spectrum',    desc:'All 16 moods'},
+  {id:'self_aware', icon:'💜',name:'Self Aware',  desc:'3 logs/day'},
+  {id:'night_owl',  icon:'🦉',name:'Night Owl',   desc:'Log after midnight'},
+  {id:'early_bird', icon:'🐦',name:'Early Bird',  desc:'Log before 7am'},
+];
+
+const CELEB=[
+  {emoji:'🌌',msg:'Logged to the cosmos!',   sub:'Another star placed in your constellation.'},
+  {emoji:'✨',msg:'Feelings recorded!',      sub:'Your future self will thank you for this.'},
+  {emoji:'🌙',msg:'The universe heard you.', sub:'Noticing how you feel is an act of courage.'},
+  {emoji:'💜',msg:'You showed up for you.',  sub:'That takes more strength than you know.'},
+  {emoji:'🪐',msg:'Orbit maintained!',       sub:'Consistency builds galaxies, one log at a time.'},
+  {emoji:'🌟',msg:'Star placed!',            sub:'Your constellation grows more beautiful.'},
+  {emoji:'🚀',msg:'Into the cosmos!',        sub:'Every feeling matters. Every single one.'},
+  {emoji:'🌈',msg:'Full spectrum moment!',   sub:'Naming your feelings rewires your brain. ✨'},
+  {emoji:'💫',msg:'Self-awareness +1!',      sub:'ADHD brains that track moods thrive more.'},
+];
+
+const CCOLORS=['#a78bfa','#f472b6','#2dd4bf','#fbbf24','#818cf8','#c4b5fd','#86efac','#fb7185','#60a5fa'];
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let state={entries:[],streak:{current:0,longest:0,lastDate:null},achievements:[],calYear:new Date().getFullYear(),calMonth:new Date().getMonth()};
+let selMood=null, selEnergy=3, selTags=new Set(), celebTO=null;
+
+function save(){localStorage.setItem('cosmic-mood-v1',JSON.stringify({entries:state.entries,streak:state.streak,achievements:state.achievements}));}
+function load(){try{const d=JSON.parse(localStorage.getItem('cosmic-mood-v1')||'{}');if(d.entries)state.entries=d.entries;if(d.streak)state.streak=d.streak;if(d.achievements)state.achievements=d.achievements;}catch(e){}}
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function pad(n){return String(n).padStart(2,'0');}
+function getMood(id){
+  if(!id)return null;
+  if(id.startsWith('custom_')){
+    const raw=id.slice(7).replace(/_/g,' ');
+    const name=raw.charAt(0).toUpperCase()+raw.slice(1);
+    return{id,name,emoji:'💭',quad:'custom',val:0,nrg:3,color:'#a78bfa',rgb:'167,139,250'};
+  }
+  return MOODS.find(m=>m.id===id);
+}
+
+// ══════════════════════════════════════════════
+//  STREAK
+// ══════════════════════════════════════════════
+function updateStreak(){
+  const today=todayStr();
+  if(state.streak.lastDate===today)return;
+  const yest=new Date();yest.setDate(yest.getDate()-1);
+  const ys=yest.getFullYear()+'-'+pad(yest.getMonth()+1)+'-'+pad(yest.getDate());
+  state.streak.current=state.streak.lastDate===ys?state.streak.current+1:1;
+  if(state.streak.current>state.streak.longest)state.streak.longest=state.streak.current;
+  state.streak.lastDate=today;
+  renderStreak();
+}
+function renderStreak(){
+  document.getElementById('streakNum').textContent=state.streak.current;
+  const p=document.getElementById('streakPill');
+  p.classList.remove('badgepop');void p.offsetWidth;p.classList.add('badgepop');
+}
+
+// ══════════════════════════════════════════════
+//  ACHIEVEMENTS
+// ══════════════════════════════════════════════
+function checkAchievements(){
+  const e=state.entries,s=state.streak,unlocked=[];
+  const chk={
+    first_star:e.length>=1,meteor:s.current>=3,moon:s.current>=7,
+    cluster:s.current>=14,nebula:s.current>=30,explorer:e.length>=10,
+    planet:e.length>=25,supernova:e.length>=50,
+    spectrum:new Set(e.map(x=>x.mood)).size>=16,
+    self_aware:e.filter(x=>x.date===todayStr()).length>=3,
+    night_owl:e.some(x=>{const h=parseInt(x.time);return h>=0&&h<4;}),
+    early_bird:e.some(x=>{const h=parseInt(x.time);return h>=4&&h<7;}),
+  };
+  ACHIEVEMENTS.forEach(a=>{if(chk[a.id]&&!state.achievements.includes(a.id)){state.achievements.push(a.id);unlocked.push(a);}});
+  return unlocked;
+}
+
+// ══════════════════════════════════════════════
+//  BACKGROUND STARS
+// ══════════════════════════════════════════════
+function drawBgStars(){
+  const c=document.getElementById('bgCanvas');
+  c.width=window.innerWidth;c.height=window.innerHeight;
+  const ctx=c.getContext('2d');
+  for(let i=0;i<200;i++){
+    const x=Math.random()*c.width,y=Math.random()*c.height;
+    const r=Math.random()*1.3+.15,a=Math.random()*.5+.08;
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.fill();
+  }
+  // Bright cross-flare stars
+  for(let i=0;i<15;i++){
+    const x=Math.random()*c.width,y=Math.random()*c.height,a=.3+Math.random()*.35;
+    ctx.beginPath();ctx.arc(x,y,1.8,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.fill();
+    ctx.strokeStyle=`rgba(255,255,255,${a*.4})`;ctx.lineWidth=.6;
+    ctx.beginPath();ctx.moveTo(x-6,y);ctx.lineTo(x+6,y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x,y-6);ctx.lineTo(x,y+6);ctx.stroke();
+  }
+}
+
+// ══════════════════════════════════════════════
+//  RENDER MOOD GRID
+// ══════════════════════════════════════════════
+function renderMoodGrid(){
+  ['charged','serene','storming','fading'].forEach(q=>{
+    const el=document.getElementById('mr-'+q);if(!el)return;
+    el.innerHTML=MOODS.filter(m=>m.quad===q).map(m=>`
+      <button class="moodbtn" id="mb-${m.id}" onclick="pickMood('${m.id}')"
+        style="--mc:${m.color};--mcr:${m.rgb}">
+        <span class="memo">${m.emoji}</span>
+        <span class="mnm">${m.name}</span>
+      </button>`).join('');
+  });
+}
+
+// ══════════════════════════════════════════════
+//  RENDER ENERGY ORBS
+// ══════════════════════════════════════════════
+function renderEorbs(){
+  const w=document.getElementById('eorbs');if(!w)return;
+  const moons=['','🌑','🌒','🌓','🌔','🌕'];
+  w.innerHTML=[1,2,3,4,5].map(i=>`
+    <button class="eorb ${i<=selEnergy?'lit':''}" onclick="pickEnergy(${i})">${moons[i]}</button>`).join('');
+}
+
+// ══════════════════════════════════════════════
+//  RENDER TAGS
+// ══════════════════════════════════════════════
+function renderTags(){
+  const w=document.getElementById('tagsWrap');if(!w)return;
+  w.innerHTML=TAGS.map(t=>`
+    <button class="tagbtn ${selTags.has(t.id)?'sel':''}" onclick="toggleTag('${t.id}')">${t.label}</button>`).join('');
+}
+
+// ══════════════════════════════════════════════
+//  PICK MOOD
+// ══════════════════════════════════════════════
+function pickMood(id){
+  if(selMood){const p=document.getElementById('mb-'+selMood);if(p)p.classList.remove('sel');}
+  selMood=id;
+  const m=getMood(id==='custom'?'custom_x':id);
+  document.getElementById('mb-'+id).classList.add('sel');
+  document.getElementById('selEmo').textContent=m.emoji;
+  document.getElementById('selNm').textContent=id==='custom'?'Something else':m.name;
+  const qn={charged:'⚡ Charged — high energy, positive',serene:'🌙 Serene — low energy, positive',storming:'🌪️ Storming — high energy, difficult',fading:'🌫️ Fading — low energy, difficult',custom:'💭 Your own — tap above to name it'};
+  document.getElementById('selQt').textContent=qn[m.quad]||'';
+  document.getElementById('selDisplay').style.setProperty('--mc',m.color);
+  // Show/hide custom text input
+  const cw=document.getElementById('customMoodWrap');
+  if(cw)cw.style.display=id==='custom'?'block':'none';
+  if(id==='custom')setTimeout(()=>document.getElementById('customMoodInput')?.focus(),350);
+  renderEorbs();renderTags();
+  const s2=document.getElementById('step2');
+  s2.classList.add('open');
+  setTimeout(()=>s2.scrollIntoView({behavior:'smooth',block:'nearest'}),120);
+}
+
+function pickEnergy(l){selEnergy=l;renderEorbs();}
+function toggleTag(id){selTags.has(id)?selTags.delete(id):selTags.add(id);renderTags();}
+
+// ══════════════════════════════════════════════
+//  SUBMIT
+// ══════════════════════════════════════════════
+function submitLog(){
+  if(!selMood)return;
+  const now=new Date();
+  let moodId=selMood;
+  if(selMood==='custom'){
+    const txt=(document.getElementById('customMoodInput')?.value||'').trim()||'Something';
+    moodId='custom_'+txt.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,20);
+  }
+  const entry={
+    id:Date.now(),date:todayStr(),
+    time:pad(now.getHours())+':'+pad(now.getMinutes()),
+    mood:moodId,energy:selEnergy,
+    tags:[...selTags],note:document.getElementById('moodNote').value.trim(),
+    ts:now.getTime(),
+  };
+  state.entries.unshift(entry);
+  updateStreak();
+  const newUnlocks=checkAchievements();
+  save();
+  celebrate(entry,newUnlocks);
+  resetForm();
+  renderQuadStreakBanner();
+}
+
+function resetForm(){
+  if(selMood){const b=document.getElementById('mb-'+selMood);if(b)b.classList.remove('sel');}
+  selMood=null;selEnergy=3;selTags=new Set();
+  document.getElementById('step2').classList.remove('open');
+  document.getElementById('moodNote').value='';
+  const ci=document.getElementById('customMoodInput');if(ci)ci.value='';
+  const cw=document.getElementById('customMoodWrap');if(cw)cw.style.display='none';
+}
+
+// ══════════════════════════════════════════════
+//  UPDATE LOG TAB HEADER
+// ══════════════════════════════════════════════
+function updateLogHeader(){
+  const today=todayStr();
+  const todayLogs=state.entries.filter(e=>e.date===today);
+  const el=document.getElementById('logQ');
+  if(todayLogs.length===0){
+    el.innerHTML="How are you feeling<br>right now?";
+  } else {
+    const last=getMood(todayLogs[0].mood);
+    el.innerHTML=`Logged ${todayLogs.length}× today<br><span style="font-size:16px;-webkit-text-fill-color:var(--text2)">Last: ${last?last.emoji+' '+last.name:''} · ${todayLogs[0].time}</span>`;
+  }
+}
+function updateTime(){
+  const el=document.getElementById('logTime');if(!el)return;
+  const d=new Date();
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const h=d.getHours(),m=pad(d.getMinutes());
+  el.textContent=`${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} · ${h%12||12}:${m}${h>=12?'pm':'am'}`;
+}
+
+// ══════════════════════════════════════════════
+//  JOURNEY TAB
+// ══════════════════════════════════════════════
+let selectedDay=null, deletingId=null;
+
+function renderJourney(){
+  const cont=document.getElementById('journeyContent');if(!cont)return;
+  const y=state.calYear,mo=state.calMonth;
+  const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DL=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const today=todayStr();
+  const firstDay=new Date(y,mo,1).getDay();
+  const dim=new Date(y,mo+1,0).getDate();
+  const now=new Date();
+  const isFuture=ds=>new Date(ds+'T12:00:00')>new Date(today+'T23:59:59');
+
+  // date → entries array
+  const dm={};
+  state.entries.forEach(e=>{if(!dm[e.date])dm[e.date]=[];dm[e.date].push(e);});
+
+  // ── Calendar ──
+  let h=`<div class="jnav">
+    <button class="navbtn" onclick="chMonth(-1)">‹</button>
+    <div class="jmonth">${MN[mo]} ${y}</div>
+    <button class="navbtn" onclick="chMonth(1)">›</button>
+  </div>
+  <div class="calgrid">
+    ${DL.map(d=>`<div class="calhdr">${d}</div>`).join('')}
+    ${Array(firstDay).fill('<div></div>').join('')}`;
+
+  for(let d=1;d<=dim;d++){
+    const ds=`${y}-${pad(mo+1)}-${pad(d)}`;
+    const dayEntries=dm[ds]||[];
+    const isFut=isFuture(ds);
+    const lastEntry=dayEntries[0]; // most recent first
+    const mood=lastEntry?getMood(lastEntry.mood):null;
+    const isToday=ds===today;
+    const isSel=ds===selectedDay;
+    const cnt=dayEntries.length;
+    h+=`<div class="calday ${isToday?'today':''} ${isSel?'selected':''} ${dayEntries.length?'hasentry':'empty-day'} ${isFut?'future':''}"
+      onclick="${isFut?'':'openDay(\''+ds+'\')'}"
+    >
+      ${mood?`<span class="cday-emo">${mood.emoji}</span>`:''}
+      <span class="cday-num">${d}</span>
+      ${cnt>1?`<span class="cday-badge">${cnt}</span>`:''}
+    </div>`;
+  }
+  h+='</div>';
+
+  // ── Legend ──
+  h+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+    <span style="font-size:10px;font-weight:700;color:var(--text3)">Tap a day to explore · <span style="color:var(--purple)">Purple border</span> = today</span>
+    ${selectedDay?`<span style="font-size:10px;font-weight:700;color:var(--purple);margin-left:auto">▼ ${selectedDay}</span>`:''}
+  </div>`;
+
+  // ── Day detail panel ──
+  if(selectedDay){
+    const dayEntries=dm[selectedDay]||[];
+    const ds=selectedDay;
+    const dayName=new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    h+=`<div class="day-panel">
+      <div class="day-panel-hdr">
+        <div class="day-panel-title">📅 ${dayName}</div>
+        <button class="add-past-btn" onclick="openRetroLog('${ds}')">＋ Add entry</button>
+      </div>`;
+    if(!dayEntries.length){
+      h+=`<div style="text-align:center;padding:18px 0;font-size:12px;font-weight:700;color:var(--text3)">No logs for this day<br><span style="color:var(--text3);font-size:11px">Tap "+ Add entry" to log retrospectively</span></div>`;
+    } else {
+      dayEntries.forEach(e=>{
+        const m=getMood(e.mood);if(!m)return;
+        const isDeleting=deletingId===e.id;
+        h+=`<div class="entrycard" id="ecard-${e.id}">
+          <span class="entemoji">${m.emoji}</span>
+          <div class="entinfo">
+            <div class="entnm" style="color:${m.color}">${m.name}</div>
+            <div class="entmeta">${e.time} · Energy ${e.energy}/5 · ${m.quad}</div>
+            ${e.note?`<div class="entnote">"${e.note}"</div>`:''}
+            ${e.tags.length?`<div class="enttags">${e.tags.map(t=>`<span class="enttag">${TAGS.find(x=>x.id===t)?.label||t}</span>`).join('')}</div>`:''}
+            ${isDeleting?`<div class="del-confirm">
+              <span class="del-confirm-txt">Delete this entry?</span>
+              <button class="del-yes" onclick="deleteEntry(${e.id})">Yes, delete</button>
+              <button class="del-no" onclick="cancelDelete()">Keep</button>
+            </div>`:''}
+          </div>
+          ${!isDeleting?`<button class="del-btn" onclick="askDeleteEntry(${e.id})" title="Delete">🗑️</button>`:''}
+        </div>`;
+      });
+    }
+    h+='</div>';
+  } else {
+    // No day selected — show hint or recent 7 days overview
+    if(!state.entries.length){
+      h+=`<div class="empty"><span class="emptyico">🌌</span><div class="emptytxt">Your cosmos awaits</div><div class="emptysub">Log your first mood to begin your journey through the stars</div></div>`;
+    } else {
+      h+=`<div class="tap-hint">👆 Tap any day on the calendar to see its entries or add one</div>`;
+      // Show last 5 days with entries as quick overview
+      const recentDates=[...new Set(state.entries.map(e=>e.date))].slice(0,5);
+      if(recentDates.length){
+        h+=`<div class="secttitle" style="margin-top:4px">Recent days</div>`;
+        recentDates.forEach(ds=>{
+          const dayEs=state.entries.filter(e=>e.date===ds);
+          const dayName=new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+          h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:11px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px;" onclick="selectDayFromList('${ds}')">
+            <div style="display:flex;gap:3px;flex-wrap:wrap;max-width:80px;">${dayEs.map(e=>{const m=getMood(e.mood);return m?`<span style="font-size:18px">${m.emoji}</span>`:''}).join('')}</div>
+            <div style="flex:1">
+              <div style="font-family:'Fredoka One',cursive;font-size:13px;color:var(--text)">${dayName}</div>
+              <div style="font-size:10px;font-weight:700;color:var(--text3);margin-top:2px">${dayEs.length} log${dayEs.length>1?'s':''}</div>
+            </div>
+            <span style="color:var(--text3);font-size:14px">›</span>
+          </div>`;
+        });
+      }
+    }
+  }
+
+  cont.innerHTML=h;
+}
+
+function openDay(ds){
+  selectedDay=selectedDay===ds?null:ds;
+  deletingId=null;
+  renderJourney();
+  // scroll to day panel
+  setTimeout(()=>{
+    const p=document.querySelector('.day-panel');
+    if(p)p.scrollIntoView({behavior:'smooth',block:'nearest'});
+  },80);
+}
+
+function selectDayFromList(ds){
+  // Navigate calendar to that month if needed
+  const d=new Date(ds+'T12:00:00');
+  state.calYear=d.getFullYear();state.calMonth=d.getMonth();
+  selectedDay=ds;deletingId=null;
+  renderJourney();
+  setTimeout(()=>{const p=document.querySelector('.day-panel');if(p)p.scrollIntoView({behavior:'smooth',block:'nearest'});},80);
+}
+
+function chMonth(dir){
+  state.calMonth+=dir;
+  if(state.calMonth<0){state.calMonth=11;state.calYear--;}
+  if(state.calMonth>11){state.calMonth=0;state.calYear++;}
+  selectedDay=null;deletingId=null;
+  renderJourney();
+}
+
+// ── Delete entry ──
+function askDeleteEntry(id){deletingId=id;renderJourney();}
+function cancelDelete(){deletingId=null;renderJourney();}
+function deleteEntry(id){
+  state.entries=state.entries.filter(e=>e.id!==id);
+  deletingId=null;save();renderJourney();
+}
+
+// ══════════════════════════════════════════════
+//  PATTERNS TAB
+// ══════════════════════════════════════════════
+function renderPatterns(){
+  const cont=document.getElementById('patternsContent');if(!cont)return;
+  if(state.entries.length<2){
+    cont.innerHTML=`<div class="empty"><span class="emptyico">🔭</span><div class="emptytxt">Patterns need time</div><div class="emptysub">Log a few moods and your personal patterns will emerge here. The cosmos reveals itself gradually.</div></div>`;
+    return;
+  }
+  let h='';
+
+  // Mood frequency
+  const mct={};state.entries.forEach(e=>{mct[e.mood]=(mct[e.mood]||0)+1;});
+  const srtm=Object.entries(mct).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const mx=srtm[0][1];
+  h+=`<div class="pcard"><div class="pcard-t">🌟 Most Visited Moods</div>
+    ${srtm.map(([id,ct])=>{const m=getMood(id);if(!m)return'';return`<div class="freqrow">
+      <div class="freqlbl">${m.emoji} ${m.name}</div>
+      <div class="freqbg"><div class="freqbar" style="width:${Math.round(ct/mx*100)}%;background:${m.color}"></div></div>
+      <div class="freqct">${ct}</div>
+    </div>`}).join('')}
+  </div>`;
+
+  // Day of week bars
+  const dv={0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+  state.entries.forEach(e=>{const d=new Date(e.date+'T12:00:00').getDay();const m=getMood(e.mood);if(m)dv[d].push(m.val);});
+  const da=[0,1,2,3,4,5,6].map(d=>({d,avg:dv[d].length?dv[d].reduce((a,b)=>a+b,0)/dv[d].length:null,ct:dv[d].length}));
+  const DL2=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const bc=avg=>avg===null?'rgba(255,255,255,.04)':avg>=1?'#a78bfa':avg>=0?'#2dd4bf':avg>=-1?'#fb923c':'#64748b';
+  const maxH=52;
+  h+=`<div class="pcard"><div class="pcard-t">📅 Mood by Day of Week</div>
+    <div class="wbars">
+      ${da.map(d=>{const bh=d.avg!==null?Math.max(9,Math.round((d.avg+2)/4*maxH)):8;
+        return`<div class="wbwrap">
+          <div class="wbar" style="height:${bh}px;background:${bc(d.avg)};margin-top:${maxH-bh}px"></div>
+          <div class="wbrlbl">${DL2[d.d]}</div>
+        </div>`;}).join('')}
+    </div>
+  </div>`;
+
+  // Best/hardest day insight
+  const dwd=da.filter(d=>d.ct>=1);
+  if(dwd.length>=2){
+    const best=dwd.reduce((a,b)=>(a.avg||0)>=(b.avg||0)?a:b);
+    const hard=dwd.reduce((a,b)=>(a.avg||0)<=(b.avg||0)?a:b);
+    h+=`<div class="insightcard">
+      <span class="insico">☀️</span>
+      <div class="instxt">${DL2[best.d]}s are your brightest days</div>
+      <div class="inssub">Your mood tends to be most positive on ${DL2[best.d]}s. Schedule demanding tasks or important conversations then.</div>
+    </div>`;
+    if(hard.d!==best.d)h+=`<div class="insightcard" style="background:linear-gradient(135deg,rgba(71,85,105,.2),rgba(100,116,139,.1));border-color:rgba(100,116,139,.25);">
+      <span class="insico">🌧️</span>
+      <div class="instxt">${DL2[hard.d]}s can feel harder</div>
+      <div class="inssub">${DL2[hard.d]}s tend to be more challenging. Try scheduling lighter, enjoyable tasks — be gentle with yourself that day.</div>
+    </div>`;
+  }
+
+  // Energy trend
+  if(state.entries.length>=3){
+    const rec=state.entries.slice(0,7);
+    const ae=rec.reduce((s,e)=>s+e.energy,0)/rec.length;
+    const em=ae>=4?'⚡':ae>=3?'🌙':ae>=2?'🌫️':'🪫';
+    const et=ae>=4?'Your energy is strong right now':ae>=3?'Energy is holding steady':ae>=2?'Energy has been lower lately':'Energy is very depleted';
+    const ec=ae>=4?'#fbbf24':ae>=3?'#2dd4bf':ae>=2?'#fb923c':'#94a3b8';
+    h+=`<div class="pcard"><div class="pcard-t">⚡ Energy Trend (last ${rec.length} logs)</div>
+      <div style="display:flex;align-items:center;gap:13px;padding:6px 0">
+        <span style="font-size:32px">${em}</span>
+        <div>
+          <div style="font-family:'Fredoka One',cursive;font-size:16px;color:${ec}">${et}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text3);margin-top:2px">Average: ${ae.toFixed(1)} / 5</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Top tags
+  const tct={};state.entries.forEach(e=>e.tags.forEach(t=>{tct[t]=(tct[t]||0)+1;}));
+  const tops=Object.entries(tct).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  if(tops.length>=2){
+    h+=`<div class="pcard"><div class="pcard-t">🏷️ Most Common Context</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">
+        ${tops.map(([id,ct])=>{const tg=TAGS.find(t=>t.id===id);return tg?`<div style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.06);border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;color:var(--text2)">${tg.label} <span style="color:var(--text3);font-size:10px">${ct}×</span></div>`:''}).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ADHD insight — sleep/mood correlation
+  const sleepBad=state.entries.filter(e=>e.tags.includes('poor_sleep'));
+  const sleepOk=state.entries.filter(e=>!e.tags.includes('poor_sleep'));
+  if(sleepBad.length>=2&&sleepOk.length>=2){
+    const avgBad=sleepBad.reduce((s,e)=>{const m=getMood(e.mood);return s+(m?m.val:0);},0)/sleepBad.length;
+    const avgOk=sleepOk.reduce((s,e)=>{const m=getMood(e.mood);return s+(m?m.val:0);},0)/sleepOk.length;
+    const diff=avgOk-avgBad;
+    if(diff>0.3)h+=`<div class="insightcard" style="background:linear-gradient(135deg,rgba(45,212,191,.1),rgba(96,165,250,.07));border-color:rgba(45,212,191,.25);">
+      <span class="insico">😴</span>
+      <div class="instxt">Sleep matters for your mood</div>
+      <div class="inssub">On days you logged poor sleep, your mood averaged ${diff.toFixed(1)} points lower. Your brain is telling you something important.</div>
+    </div>`;
+  }
+
+  cont.innerHTML=h;
+}
+
+// ══════════════════════════════════════════════
+//  COSMOS TAB
+// ══════════════════════════════════════════════
+function renderCosmos(){
+  const cont=document.getElementById('cosmosContent');
+  if(!cont)return;
+  const total=state.entries.length;
+  const uniq=new Set(state.entries.map(e=>e.mood)).size;
+  const lon=state.streak.longest;
+  cont.innerHTML=`
+    <div class="cosmos-title-row">
+      <div>
+        <div class="cosmos-title">✦ Mood Constellation</div>
+        <div class="cosmos-sub">Stars = logged moods · Energy ↑ · Positivity →</div>
+      </div>
+      <button class="export-btn" id="exportBtn" onclick="exportConstellation()" style="width:auto;padding:8px 14px;margin:0;font-size:13px;">📸 Save &amp; Share</button>
+    </div>
+    <div class="canvaswrap" id="constellWrap">
+      <canvas id="constellCanvas"></canvas>
+    </div>
+    <div class="caxes">
+      <span class="caxlbl">← Difficult</span>
+      <span class="caxlbl" style="color:rgba(167,139,250,.5)">↑ High Energy</span>
+      <span class="caxlbl">Positive →</span>
+    </div>
+    <div style="margin:4px 0 12px;text-align:center;font-size:10px;font-weight:700;color:rgba(167,139,250,.28);letter-spacing:.5px;">© DREAMSTODONE · COSMIC MOOD</div>
+    <div class="statsgrid">
+      <div class="statbox"><div class="statnum" style="color:var(--purple)">${total}</div><div class="statlbl">Total Logs</div></div>
+      <div class="statbox"><div class="statnum" style="color:var(--gold)">${lon}</div><div class="statlbl">Best Streak</div></div>
+      <div class="statbox"><div class="statnum" style="color:var(--teal)">${uniq}</div><div class="statlbl">Moods Felt</div></div>
+    </div>
+    <div class="ach-hdr">🏆 Achievements <span style="font-size:12px;color:var(--text3);font-family:'Nunito',sans-serif;font-weight:700">${state.achievements.length}/${ACHIEVEMENTS.length}</span></div>
+    <div class="achgrid">
+      ${ACHIEVEMENTS.map(a=>{const ul=state.achievements.includes(a.id);return`<div class="achitem ${ul?'unlocked':''}" title="${a.name}: ${a.desc}">
+        <span class="achico">${a.icon}</span>
+        <span class="achnm">${a.name}</span>
+        <span class="achdesc">${a.desc}</span>
+      </div>`;}).join('')}
+    </div>`;
+  // Use double-rAF so the browser has time to lay out the injected canvas
+  // before we read its clientWidth/clientHeight. setTimeout(50) is unreliable
+  // on mobile and low-end devices.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>drawConstellation()));
+}
+
+function jitter(seed,axis){
+  const x=Math.sin(seed*0.000001+axis*7.93)*10000;
+  const p=(x-Math.floor(x)-0.5);
+  const y=Math.sin(seed*0.00000371+axis*13.17)*10000;
+  const s=(y-Math.floor(y)-0.5)*0.55;
+  return(p+s)*95;
+}
+
+function drawSparkle(ctx,x,y,sz,color,al){
+  ctx.save();
+  ctx.globalAlpha=al;
+  // Layer 1: wide diffuse outer halo
+  const h1=ctx.createRadialGradient(x,y,0,x,y,sz*9);
+  h1.addColorStop(0,color+'22');h1.addColorStop(.5,color+'0a');h1.addColorStop(1,color+'00');
+  ctx.beginPath();ctx.arc(x,y,sz*9,0,Math.PI*2);ctx.fillStyle=h1;ctx.fill();
+  // Layer 2: mid coloured bloom
+  const h2=ctx.createRadialGradient(x,y,0,x,y,sz*4.5);
+  h2.addColorStop(0,color+'99');h2.addColorStop(.4,color+'44');h2.addColorStop(.85,color+'11');h2.addColorStop(1,color+'00');
+  ctx.beginPath();ctx.arc(x,y,sz*4.5,0,Math.PI*2);ctx.fillStyle=h2;ctx.fill();
+  // Layer 3: bright inner coloured core
+  const h3=ctx.createRadialGradient(x,y,0,x,y,sz*2);
+  h3.addColorStop(0,'rgba(255,255,255,.95)');h3.addColorStop(.2,color+'ff');h3.addColorStop(.65,color+'aa');h3.addColorStop(1,color+'00');
+  ctx.beginPath();ctx.arc(x,y,sz*2,0,Math.PI*2);ctx.fillStyle=h3;ctx.fill();
+  // Layer 4: white-hot pinpoint
+  const h4=ctx.createRadialGradient(x,y,0,x,y,sz*.7);
+  h4.addColorStop(0,'rgba(255,255,255,1)');h4.addColorStop(.6,'rgba(255,255,255,.6)');h4.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.beginPath();ctx.arc(x,y,sz*.7,0,Math.PI*2);ctx.fillStyle=h4;ctx.fill();
+  ctx.restore();
+}
+
+function drawConstellation(){
+  const canvas=document.getElementById('constellCanvas');if(!canvas)return;
+  // Prefer wrapper dimensions (more reliable after innerHTML injection);
+  // fall back to canvas.client* and then hardcoded defaults.
+  const wrap=document.getElementById('constellWrap');
+  const W=(wrap&&wrap.clientWidth)||canvas.clientWidth||340;
+  const H=(wrap&&wrap.clientHeight)||canvas.clientHeight||Math.round(W*.72);
+  // If still zero the DOM hasn't laid out yet — retry after one more frame.
+  if(!W||!H){requestAnimationFrame(()=>drawConstellation());return;}
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d'),PAD=26;
+  const pw=W-PAD*2,ph=H-PAD*2;
+
+  // 1. Deep space background
+  ctx.fillStyle='#06082a';ctx.fillRect(0,0,W,H);
+  const gr=ctx.createRadialGradient(W*.5,H*.38,0,W*.5,H*.38,Math.max(W,H)*.95);
+  gr.addColorStop(0,'rgba(55,30,160,.75)');
+  gr.addColorStop(.35,'rgba(22,12,100,.8)');
+  gr.addColorStop(.7,'rgba(8,5,55,.9)');
+  gr.addColorStop(1,'rgba(4,3,22,.98)');
+  ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
+
+  // 2. Nebula clouds
+  [[W*.72,H*.18,W*.38,'rgba(55,7,95,'],[W*.18,H*.78,W*.32,'rgba(10,56,52,'],[W*.45,H*.55,W*.42,'rgba(22,4,50,'],[W*.12,H*.22,W*.28,'rgba(48,7,80,']].forEach(([nx,ny,nr,nc])=>{
+    const ng=ctx.createRadialGradient(nx,ny,0,nx,ny,nr);
+    ng.addColorStop(0,nc+'.38)');ng.addColorStop(.55,nc+'.12)');ng.addColorStop(1,nc+'0)');
+    ctx.fillStyle=ng;ctx.fillRect(0,0,W,H);
+  });
+
+  // 3. Micro star field
+  for(let i=0;i<140;i++){
+    const sx=(Math.sin(i*127.1)*.5+.5)*W,sy=(Math.sin(i*311.7+1.3)*.5+.5)*H;
+    const sr=Math.max(0.05,Math.sin(i*53.3)*.28+.15),sa=Math.sin(i*79.1)*.1+.09;
+    ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${sa})`;ctx.fill();
+  }
+  for(let i=0;i<22;i++){
+    const sx=(Math.sin(i*217.3+.7)*.5+.5)*W,sy=(Math.sin(i*193.1+2.3)*.5+.5)*H;
+    const sr=Math.sin(i*71.1)*.45+.6,sa=Math.sin(i*113.3)*.14+.22;
+    ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);ctx.fillStyle=`rgba(220,210,255,${sa})`;ctx.fill();
+    // cross flares on brightest
+    if(sa>0.3){ctx.strokeStyle=`rgba(220,210,255,${sa*.3})`;ctx.lineWidth=.5;
+      ctx.beginPath();ctx.moveTo(sx-5,sy);ctx.lineTo(sx+5,sy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(sx,sy-5);ctx.lineTo(sx,sy+5);ctx.stroke();}
+  }
+
+  // 4. Quadrant zone tints
+  const qcx=W/2,qcy=H/2;
+  [[qcx+W*.22,PAD+ph*.2,W*.3,'rgba(251,191,36,'],[qcx-W*.22,PAD+ph*.78,W*.28,'rgba(45,212,191,'],[qcx-W*.22,PAD+ph*.2,W*.25,'rgba(251,146,60,'],[qcx+W*.22,PAD+ph*.78,W*.22,'rgba(100,116,139,']].forEach(([zx,zy,zr,zc])=>{
+    const zg=ctx.createRadialGradient(zx,zy,0,zx,zy,zr);
+    zg.addColorStop(0,zc+'.07)');zg.addColorStop(1,zc+'0)');
+    ctx.fillStyle=zg;ctx.fillRect(0,0,W,H);
+  });
+
+  // 5. Axis lines
+  ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=.8;ctx.setLineDash([3,7]);
+  ctx.beginPath();ctx.moveTo(W/2,PAD+4);ctx.lineTo(W/2,H-PAD-4);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(PAD+4,H/2);ctx.lineTo(W-PAD-4,H/2);ctx.stroke();
+  ctx.setLineDash([]);
+
+  if(!state.entries.length){
+    ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='bold 11px Nunito,sans-serif';ctx.textAlign='center';
+    ctx.fillText('Log moods to grow your constellation',W/2,H/2-8);
+    ctx.font='10px Nunito,sans-serif';ctx.fillStyle='rgba(167,139,250,.4)';
+    ctx.fillText('✦  ✦  ✦',W/2,H/2+14);
+    return;
+  }
+
+  const toX=val=>PAD+(val+2)/4*pw;
+  const toY=nrg=>H-PAD-(nrg-1)/4*ph;
+  const recent=state.entries.slice(0,60);
+
+  // 6. Connection lines with gradient
+  recent.forEach((e,i)=>{
+    if(i>=recent.length-1)return;
+    const nx=recent[i+1];
+    const m1=getMood(e.mood),m2=getMood(nx.mood);if(!m1||!m2)return;
+    const d1=new Date(e.date+'T12:00:00'),d2=new Date(nx.date+'T12:00:00');
+    if(Math.abs((d1-d2)/86400000)<=1.1){
+      const x1=toX(m1.val)+jitter(e.id,1)*.35,y1=toY(m1.nrg)+jitter(e.id,2)*.35;
+      const x2=toX(m2.val)+jitter(nx.id,1)*.35,y2=toY(m2.nrg)+jitter(nx.id,2)*.35;
+      const age=Math.max(.08,1-i*.016);
+      const lg=ctx.createLinearGradient(x1,y1,x2,y2);
+      lg.addColorStop(0,m1.color+(Math.round(age*90).toString(16).padStart(2,'0')));
+      lg.addColorStop(1,m2.color+(Math.round(age*90).toString(16).padStart(2,'0')));
+      // Glow bloom pass
+      ctx.strokeStyle=lg;ctx.lineWidth=i===0?6:3.5;ctx.globalAlpha=age*.18;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      // Bright core pass
+      ctx.lineWidth=i===0?1.6:1;ctx.globalAlpha=age*.9;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+  });
+
+  // 7. Stars — sparkle for recent, simple glows for older
+  recent.forEach((e,i)=>{
+    const m=getMood(e.mood);if(!m)return;
+    const x=toX(m.val)+jitter(e.id,1)*.35,y=toY(m.nrg)+jitter(e.id,2)*.35;
+    const al=Math.max(.25,1-i*.016);
+    if(i===0){drawSparkle(ctx,x,y,7,m.color,al);}
+    else if(i<4){drawSparkle(ctx,x,y,4.5,m.color,al);}
+    else if(i<12){drawSparkle(ctx,x,y,3,m.color,al*.9);}
+    else{
+      // soft gradient glow for older entries
+      const gw1=ctx.createRadialGradient(x,y,0,x,y,13);
+      gw1.addColorStop(0,m.color+'22');gw1.addColorStop(.6,m.color+'0a');gw1.addColorStop(1,m.color+'00');
+      ctx.beginPath();ctx.arc(x,y,13,0,Math.PI*2);ctx.fillStyle=gw1;ctx.globalAlpha=al*.8;ctx.fill();
+      const gw2=ctx.createRadialGradient(x,y,0,x,y,5.5);
+      gw2.addColorStop(0,m.color+'99');gw2.addColorStop(.5,m.color+'44');gw2.addColorStop(1,m.color+'00');
+      ctx.beginPath();ctx.arc(x,y,5.5,0,Math.PI*2);ctx.fillStyle=gw2;ctx.globalAlpha=al;ctx.fill();
+      const gw3=ctx.createRadialGradient(x,y,0,x,y,1.8);
+      gw3.addColorStop(0,'rgba(255,255,255,.9)');gw3.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.beginPath();ctx.arc(x,y,1.8,0,Math.PI*2);ctx.fillStyle=gw3;ctx.fill();
+      ctx.globalAlpha=1;
+    }
+  });
+  ctx.globalAlpha=1;
+
+  // 8. Label most recent
+  if(recent[0]){
+    const m=getMood(recent[0].mood);if(m){
+      const x=toX(m.val)+jitter(recent[0].id,1)*.35,y=toY(m.nrg)+jitter(recent[0].id,2)*.35;
+      ctx.font='700 10px Nunito,sans-serif';ctx.fillStyle='rgba(255,255,255,.8)';
+      ctx.textAlign=x>W*.55?'right':'left';
+      ctx.fillText('✦ '+m.name,x>W*.55?x-12:x+12,y-12);
+    }
+  }
+  // Watermark
+  ctx.font='700 8px Nunito,sans-serif';ctx.fillStyle='rgba(167,139,250,.3)';
+  ctx.textAlign='right';ctx.fillText('© DreamsToDone',W-5,H-4);
+}
+
+async function exportConstellation(){
+  const btn=document.getElementById('exportBtn');
+  if(btn){btn.innerHTML='⏳ Rendering...';btn.disabled=true;}
+
+  try{
+    await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1200))]);
+  }catch(e){}
+
+  try{
+    const S=900, off=document.createElement('canvas');
+    off.width=S;off.height=S;
+    const ctx=off.getContext('2d');
+
+    // Deep space background
+    ctx.fillStyle='#04020f';ctx.fillRect(0,0,S,S);
+    const nebulae=[
+      {x:.72,y:.18,r:.55,c:'#2e0657',a:.7},{x:.2,y:.75,r:.5,c:'#0a3d38',a:.5},
+      {x:.5,y:.45,r:.7,c:'#1a0535',a:.6},{x:.15,y:.2,r:.4,c:'#3b0058',a:.4},
+      {x:.85,y:.8,r:.4,c:'#051e1c',a:.45},{x:.55,y:.85,r:.35,c:'#2d0550',a:.35},
+    ];
+    nebulae.forEach(n=>{
+      const g=ctx.createRadialGradient(n.x*S,n.y*S,0,n.x*S,n.y*S,n.r*S);
+      g.addColorStop(0,n.c+'cc');g.addColorStop(.6,n.c+'44');g.addColorStop(1,n.c+'00');
+      ctx.fillStyle=g;ctx.fillRect(0,0,S,S);
+    });
+
+    // Micro star field
+    for(let i=0;i<420;i++){
+      const x=(Math.sin(i*127.1)*.5+.5)*S,y=(Math.sin(i*311.7+1.3)*.5+.5)*S;
+      const r=Math.max(0.05,Math.sin(i*53.3)*.4+.35),a=Math.sin(i*79.1)*.18+.15;
+      ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.fill();
+    }
+    for(let i=0;i<80;i++){
+      const x=(Math.sin(i*217.3+.7)*.5+.5)*S,y=(Math.sin(i*193.1+2.3)*.5+.5)*S;
+      const r=Math.sin(i*71.1)*.5+.8,a=Math.sin(i*113.3)*.2+.28;
+      ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=`rgba(220,210,255,${a})`;ctx.fill();
+    }
+    for(let i=0;i<18;i++){
+      const x=(Math.sin(i*233.7)*.5+.5)*S,y=(Math.sin(i*177.3+2.1)*.5+.5)*S;
+      const sz2=Math.sin(i*61.3)*.8+1.4,a=.35+Math.sin(i*97.7)*.18;
+      ctx.beginPath();ctx.arc(x,y,sz2,0,Math.PI*2);ctx.fillStyle=`rgba(255,252,240,${a})`;ctx.fill();
+      ctx.strokeStyle=`rgba(255,252,240,${a*.35})`;ctx.lineWidth=.6;
+      ctx.beginPath();ctx.moveTo(x-10,y);ctx.lineTo(x+10,y);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x,y+10);ctx.stroke();
+    }
+    // Shooting star
+    const sg=ctx.createLinearGradient(S*.08,S*.22,S*.38,S*.12);
+    sg.addColorStop(0,'rgba(255,255,255,0)');sg.addColorStop(.6,'rgba(200,180,255,.35)');sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.strokeStyle=sg;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(S*.08,S*.22);ctx.lineTo(S*.38,S*.12);ctx.stroke();
+
+    const BRANDING_H=96,HEADER_H=82;
+    const PLOT_TOP=HEADER_H,PLOT_H=S-HEADER_H-BRANDING_H;
+    const cx=S/2,cy=PLOT_TOP+PLOT_H/2;
+
+    // Quadrant zone tints
+    [[cx+S*.18,PLOT_TOP+PLOT_H*.22,S*.28,'rgba(251,191,36,'],[cx-S*.18,PLOT_TOP+PLOT_H*.78,S*.28,'rgba(45,212,191,'],[cx-S*.18,PLOT_TOP+PLOT_H*.22,S*.24,'rgba(251,146,60,'],[cx+S*.18,PLOT_TOP+PLOT_H*.78,S*.22,'rgba(100,116,139,']].forEach(([zx,zy,zr,zc])=>{
+      const zg=ctx.createRadialGradient(zx,zy,0,zx,zy,zr);
+      zg.addColorStop(0,zc+'.06)');zg.addColorStop(1,zc+'0)');
+      ctx.fillStyle=zg;ctx.fillRect(0,PLOT_TOP,S,PLOT_H);
+    });
+
+    // Header
+    ctx.textAlign='center';
+    const tgrad=ctx.createLinearGradient(S/2-200,0,S/2+200,0);
+    tgrad.addColorStop(0,'#e2d9ff');tgrad.addColorStop(.5,'#f0c8e8');tgrad.addColorStop(1,'#c4f0eb');
+    ctx.font='bold 42px "Fredoka One",cursive';   // ← quoted font name (critical fix)
+    ctx.fillStyle=tgrad;
+    ctx.fillText('My Mood Constellation',S/2,50);
+    const now=new Date();
+    ctx.font='600 17px Nunito,sans-serif';
+    ctx.fillStyle='rgba(196,181,253,.42)';
+    ctx.fillText(now.toLocaleDateString('en-US',{month:'long',year:'numeric'}),S/2,74);
+
+    // Axis lines
+    ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;ctx.setLineDash([5,12]);
+    ctx.beginPath();ctx.moveTo(S/2,PLOT_TOP+20);ctx.lineTo(S/2,PLOT_TOP+PLOT_H-20);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(54+20,cy);ctx.lineTo(S-54-20,cy);ctx.stroke();
+    ctx.setLineDash([]);
+
+    const PAD=54;
+    const toX=val=>PAD+(val+2)/4*(S-PAD*2);
+    const VPAD=55;
+    const toY=nrg=>(PLOT_TOP+VPAD)+(PLOT_H-VPAD*2)*(1-(nrg-1)/4);
+
+    // Clip all point drawing so glow never bleeds into the branding strip
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, PLOT_TOP, S, PLOT_H);
+    ctx.clip();
+
+    if(!state.entries.length){
+      ctx.font='bold 18px Nunito,sans-serif';ctx.fillStyle='rgba(255,255,255,.25)';ctx.textAlign='center';
+      ctx.fillText('Your constellation is waiting to be born ✨',S/2,PLOT_TOP+PLOT_H/2);
+    } else {
+      const recent=state.entries.slice(0,100);
+      recent.forEach((e,i)=>{
+        if(i>=recent.length-1)return;
+        const nx=recent[i+1];
+        const m1=getMood(e.mood),m2=getMood(nx.mood);if(!m1||!m2)return;
+        const d1=new Date(e.date+'T12:00:00'),d2=new Date(nx.date+'T12:00:00');
+        if(Math.abs((d1-d2)/86400000)<=1.1){
+          const x1=toX(m1.val)+jitter(e.id,1)*.75,y1=toY(m1.nrg)+jitter(e.id,2)*.75;
+          const x2=toX(m2.val)+jitter(nx.id,1)*.75,y2=toY(m2.nrg)+jitter(nx.id,2)*.75;
+          const age=Math.max(.12,1-i*.012);
+          const lg=ctx.createLinearGradient(x1,y1,x2,y2);
+          lg.addColorStop(0,m1.color+(Math.floor(age*80).toString(16).padStart(2,'00')));
+          lg.addColorStop(1,m2.color+(Math.floor(age*80).toString(16).padStart(2,'00')));
+          ctx.strokeStyle=lg;ctx.lineWidth=1.8;
+          ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+        }
+      });
+      recent.forEach((e,i)=>{
+        const m=getMood(e.mood);if(!m)return;
+        const x=toX(m.val)+jitter(e.id,1)*.75,y=toY(m.nrg)+jitter(e.id,2)*.75;
+        const age=Math.max(.28,1-i*.014);
+        const sz=i===0?16:i<3?12:i<10?9:i<25?7:5.5;
+        // Layer 1: wide diffuse outer halo
+        const eh1=ctx.createRadialGradient(x,y,0,x,y,sz*6);
+        eh1.addColorStop(0,m.color+'22');eh1.addColorStop(.5,m.color+'0a');eh1.addColorStop(1,m.color+'00');
+        ctx.globalAlpha=age;
+        ctx.beginPath();ctx.arc(x,y,sz*6,0,Math.PI*2);ctx.fillStyle=eh1;ctx.fill();
+        // Layer 2: mid coloured bloom
+        const eh2=ctx.createRadialGradient(x,y,0,x,y,sz*2.8);
+        eh2.addColorStop(0,m.color+'99');eh2.addColorStop(.45,m.color+'44');eh2.addColorStop(1,m.color+'00');
+        ctx.beginPath();ctx.arc(x,y,sz*2.8,0,Math.PI*2);ctx.fillStyle=eh2;ctx.fill();
+        // Layer 3: bright inner core
+        const eh3=ctx.createRadialGradient(x,y,0,x,y,sz*1.3);
+        eh3.addColorStop(0,'rgba(255,255,255,.95)');eh3.addColorStop(.25,m.color+'ff');eh3.addColorStop(.7,m.color+'aa');eh3.addColorStop(1,m.color+'00');
+        ctx.beginPath();ctx.arc(x,y,sz*1.3,0,Math.PI*2);ctx.fillStyle=eh3;ctx.fill();
+        // Layer 4: white-hot pinpoint
+        const eh4=ctx.createRadialGradient(x,y,0,x,y,sz*.5);
+        eh4.addColorStop(0,'rgba(255,255,255,1)');eh4.addColorStop(1,'rgba(255,255,255,0)');
+        ctx.beginPath();ctx.arc(x,y,sz*.5,0,Math.PI*2);ctx.fillStyle=eh4;ctx.fill();
+        ctx.globalAlpha=1;
+      });
+      const m0=getMood(recent[0].mood);
+      if(m0){
+        const x=toX(m0.val)+jitter(recent[0].id,1)*.75;
+        const y=toY(m0.nrg)+jitter(recent[0].id,2)*.75;
+        ctx.font='700 15px Nunito,sans-serif';ctx.fillStyle='rgba(255,255,255,.75)';
+        ctx.textAlign=x>S*.55?'right':'left';
+        ctx.fillText('❆ '+m0.name,x>S*.55?x-20:x+20,y-18);
+      }
+    }
+    ctx.restore(); // end plot clip
+
+
+    // Branding strip
+    const fadeY=S-BRANDING_H-40;
+    const fadeG=ctx.createLinearGradient(0,fadeY,0,S-BRANDING_H);
+    fadeG.addColorStop(0,'rgba(4,2,15,0)');fadeG.addColorStop(1,'rgba(4,2,15,1)');
+    ctx.fillStyle=fadeG;ctx.fillRect(0,fadeY,S,BRANDING_H+40);
+    ctx.fillStyle='rgba(4,2,15,1)';ctx.fillRect(0,S-BRANDING_H,S,BRANDING_H);
+    const bgrad=ctx.createLinearGradient(S/2-160,0,S/2+160,0);
+    bgrad.addColorStop(0,'#c4b5fd');bgrad.addColorStop(.45,'#f472b6');bgrad.addColorStop(1,'#fbbf24');
+    ctx.textAlign='center';
+    ctx.font='bold 34px "Fredoka One",cursive';   // ← quoted font name (critical fix)
+    ctx.fillStyle=bgrad;ctx.fillText('DreamsToDone',S/2,S-BRANDING_H+42);
+    ctx.font='700 16px Nunito,sans-serif';ctx.fillStyle='rgba(196,181,253,.5)';
+    ctx.fillText('✨ Cosmic Mood Tracker · etsy.com/shop/DreamsToDone',S/2,S-BRANDING_H+66);
+    ctx.font='600 12px Nunito,sans-serif';ctx.fillStyle='rgba(196,181,253,.22)';
+    ctx.fillText('© DreamsToDone — Track your moods. Own your cosmos.',S/2,S-BRANDING_H+86);
+
+    // Show modal
+    const dataUrl=off.toDataURL('image/png');
+    const imgEl=document.getElementById('shareImg');
+    const modal=document.getElementById('shareModal');
+    if(imgEl)imgEl.src=dataUrl;
+    // Only toggle display; all other layout styles are in the element's own HTML.
+    // Replacing the entire cssText string is fragile (silently fails if any value
+    // is not supported) and wiped the original onclick close behaviour in some builds.
+    if(modal){modal.style.display='flex';}
+    if(btn){btn.innerHTML='📸 Save &amp; Share';btn.disabled=false;}
+
+  }catch(err){
+    console.error('Export failed:',err);
+    if(btn){btn.innerHTML='⚠️ Try again';btn.disabled=false;setTimeout(()=>{if(btn)btn.innerHTML='📸 Save &amp; Share';},2000);}
+  }
+}
+
+// ══════════════════════════════════════════════
+//  WEEKLY SUMMARY
+// ══════════════════════════════════════════════
+const WEEK_MSGS=[
+  'Every log is a gift to your future self. 💜',
+  'Your ADHD brain is complex and magnificent. You\'re learning it.',
+  'Self-awareness is a superpower — and you\'re using it.',
+  'The stars you placed this week tell a beautiful story.',
+  'Naming your feelings is how healing begins. Keep going.',
+  'Consistent self-care, one check-in at a time. You\'re doing it.',
+  'Your feelings are valid data — and you\'re collecting them. 🌌',
+  'Small acts of self-awareness compound into something extraordinary.',
+];
+
+function getISOWeek(){
+  const d=new Date(),day=d.getDay()||7;
+  d.setDate(d.getDate()+4-day);
+  const y=d.getFullYear(),wk=Math.ceil(((d-new Date(y,0,1))/864e5+1)/7);
+  return `${y}-W${wk}`;
+}
+
+function checkWeeklySummary(){
+  if(localStorage.getItem('cosmic-summary-week')===getISOWeek())return;
+  const cutoff=Date.now()-7*24*60*60*1000;
+  const recent=state.entries.filter(e=>e.ts&&e.ts>=cutoff);
+  if(recent.length<3)return;
+  setTimeout(()=>showWeeklySummary(recent),800); // slight delay so app renders first
+}
+
+function showWeeklySummary(recentEntries){
+  const now=new Date(),weekAgo=new Date(Date.now()-7*864e5);
+  const fmt=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  document.getElementById('wsumRange').textContent=`${fmt(weekAgo)} — ${fmt(now)}`;
+
+  // Dominant mood
+  const mct={};recentEntries.forEach(e=>{mct[e.mood]=(mct[e.mood]||0)+1;});
+  const topId=Object.entries(mct).sort((a,b)=>b[1]-a[1])[0][0];
+  const topMood=getMood(topId);
+  const emoEl=document.getElementById('wsumEmo');
+  emoEl.textContent=topMood?topMood.emoji:'✨';
+  document.getElementById('wsumMood').textContent=topMood?topMood.name:'';
+  document.getElementById('wsumMood').style.color=topMood?topMood.color:'var(--purple)';
+  document.getElementById('wsumSub').textContent='Your most visited mood this week';
+  // Re-trigger animation
+  emoEl.style.animation='none';void emoEl.offsetWidth;emoEl.style.animation='';
+
+  // Stats
+  const avgE=(recentEntries.reduce((s,e)=>s+e.energy,0)/recentEntries.length).toFixed(1);
+  const eIcon=avgE>=4?'⚡':avgE>=3?'🌙':avgE>=2?'🌫️':'🪫';
+  const uniq=new Set(recentEntries.map(e=>e.mood)).size;
+  document.getElementById('wsumStats').innerHTML=`
+    <div class="wsum-stat"><div class="wsum-stat-n" style="color:var(--purple)">${recentEntries.length}</div><div class="wsum-stat-l">Logs</div></div>
+    <div class="wsum-stat"><div class="wsum-stat-n" style="color:var(--gold)">🔥${state.streak.current}</div><div class="wsum-stat-l">Day Streak</div></div>
+    <div class="wsum-stat"><div class="wsum-stat-n">${eIcon} ${avgE}</div><div class="wsum-stat-l">Avg Energy</div></div>`;
+
+  document.getElementById('wsumMsg').textContent=WEEK_MSGS[Math.floor(Math.random()*WEEK_MSGS.length)];
+  document.getElementById('weeklyOverlay').classList.add('open');
+}
+
+function closeWeeklySummary(goTo){
+  localStorage.setItem('cosmic-summary-week',getISOWeek());
+  document.getElementById('weeklyOverlay').classList.remove('open');
+  if(goTo)switchTab(goTo);
+}
+
+// ══════════════════════════════════════════════
+//  RETRO LOG (add past entry)
+// ══════════════════════════════════════════════
+let retroDate=null,retroMood=null,retroEnergy=3,retroTags=new Set();
+
+function openRetroLog(ds){
+  retroDate=ds;retroMood=null;retroEnergy=3;retroTags=new Set();
+  const overlay=document.getElementById('retroOverlay');
+  const sheet=document.getElementById('retroSheet');
+  renderRetroSheet();
+  overlay.style.display='block';
+  sheet.classList.remove('open');
+  // Double rAF: first frame renders display:block, second frame triggers the CSS transition
+  requestAnimationFrame(()=>requestAnimationFrame(()=>sheet.classList.add('open')));
+}
+function closeRetroLog(){
+  document.getElementById('retroSheet').classList.remove('open');
+  setTimeout(()=>{document.getElementById('retroOverlay').style.display='none';},350);
+}
+function renderRetroSheet(){
+  const fmtDate=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  let h=`<div class="retro-handle"></div>
+    <div class="retro-title">Add a past entry</div>
+    <div class="retro-date-lbl">📅 ${fmtDate(retroDate)}</div>`;
+  ['charged','serene','storming','fading'].map(q=>{
+    const qn={charged:'⚡ Charged',serene:'🌙 Serene',storming:'🌪️ Storming',fading:'🌫️ Fading'};
+    const qc={charged:'#fbbf24',serene:'#2dd4bf',storming:'#fb923c',fading:'#94a3b8'};
+    h+=`<div class="retro-quad"><div class="retro-quad-hdr"><span class="retro-quad-lbl" style="color:${qc[q]}">${qn[q]}</span><div class="retro-quad-line"></div></div>
+      <div class="retro-moods">${MOODS.filter(m=>m.quad===q).map(m=>`
+        <button class="retro-moodbtn ${retroMood===m.id?'rsel':''}" id="rmb-${m.id}"
+          style="--rmc:${m.color};--rmcr:${m.rgb}" onclick="retroPickMood('${m.id}')">
+          <span class="retro-memo">${m.emoji}</span>
+          <span class="retro-mnm">${m.name}</span>
+        </button>`).join('')}</div></div>`;
+  });
+  h+=`<button class="retro-moodbtn ${retroMood==='custom'?'rsel':''}" id="rmb-custom"
+    style="grid-column:1/-1;flex-direction:row;gap:8px;justify-content:center;border-style:dashed;--rmc:#a78bfa;--rmcr:167,139,250"
+    onclick="retroPickMood('custom')">
+    <span class="retro-memo">💭</span>
+    <span class="retro-mnm" style="font-size:11px">Something else...</span>
+  </button>`;
+  // Step 2 (shown once mood picked)
+  h+=`<div class="retro-s2 ${retroMood?'open':''}" id="retroS2">
+    <div class="retro-s2-inner">
+      ${retroMood==='custom'?`<div>
+        <div class="retro-slbl">💭 Name your feeling</div>
+        <input type="text" id="retroCustomInput" class="retro-noteinput" style="height:44px;" placeholder="e.g. Overstimulated, Nostalgic..." maxlength="30">
+      </div>`:''}
+      <div>
+        <div class="retro-slbl">⚡ Energy level</div>
+        <div class="retro-eorbs" id="retroEorbs"></div>
+      </div>
+      <div>
+        <div class="retro-slbl">🏷️ Context <span style="font-size:10px;font-weight:700;color:var(--text3)">(optional)</span></div>
+        <div class="retro-tags" id="retroTagsWrap"></div>
+      </div>
+      <div>
+        <div class="retro-slbl">💬 Note <span style="font-size:10px;font-weight:700;color:var(--text3)">(optional)</span></div>
+        <textarea class="retro-noteinput" id="retroNote" placeholder="What was going on that day? 🌙" maxlength="200" rows="2"></textarea>
+      </div>
+      <button class="retro-savebtn" onclick="submitRetroLog()">🌌 Save to my cosmos</button>
+    </div>
+  </div>
+  <button class="retro-cancelbtn" onclick="closeRetroLog()">Cancel</button>`;
+  document.getElementById('retroSheet').innerHTML=h;
+  if(retroMood){renderRetroEorbs();renderRetroTags();}
+}
+function retroPickMood(id){
+  retroMood=id;renderRetroSheet();
+  setTimeout(()=>{
+    const s2=document.getElementById('retroS2');
+    if(s2)s2.scrollIntoView({behavior:'smooth',block:'nearest'});
+  },120);
+}
+function retroPickEnergy(l){retroEnergy=l;renderRetroEorbs();}
+function retroToggleTag(id){retroTags.has(id)?retroTags.delete(id):retroTags.add(id);renderRetroTags();}
+function renderRetroEorbs(){
+  const w=document.getElementById('retroEorbs');if(!w)return;
+  const moons=['','🌑','🌒','🌓','🌔','🌕'];
+  w.innerHTML=[1,2,3,4,5].map(i=>`<button class="retro-eorb ${i<=retroEnergy?'lit':''}" onclick="retroPickEnergy(${i})">${moons[i]}</button>`).join('');
+}
+function renderRetroTags(){
+  const w=document.getElementById('retroTagsWrap');if(!w)return;
+  w.innerHTML=TAGS.map(t=>`<button class="retro-tagbtn ${retroTags.has(t.id)?'rsel':''}" onclick="retroToggleTag('${t.id}')">${t.label}</button>`).join('');
+}
+function submitRetroLog(){
+  if(!retroMood||!retroDate)return;
+  let moodId=retroMood;
+  if(retroMood==='custom'){
+    const txt=(document.getElementById('retroCustomInput')?.value||'').trim()||'Something';
+    moodId='custom_'+txt.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,20);
+  }
+  const noteEl=document.getElementById('retroNote');
+  const entry={
+    id:Date.now(),date:retroDate,
+    time:pad(new Date().getHours())+':'+pad(new Date().getMinutes()),
+    mood:moodId,energy:retroEnergy,
+    tags:[...retroTags],note:noteEl?noteEl.value.trim():'',
+    ts:new Date(retroDate+'T00:00:00').getTime(),
+    retro:true,
+  };
+  state.entries.push(entry);
+  state.entries.sort((a,b)=>b.ts-a.ts);
+  checkAchievements();save();
+  closeRetroLog();
+  selectedDay=retroDate;
+  renderJourney();
+  setTimeout(()=>{const p=document.querySelector('.day-panel');if(p)p.scrollIntoView({behavior:'smooth',block:'nearest'});},400);
+}
+let currentTab='log';
+
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  document.querySelectorAll('.tabbtn').forEach((b,i)=>{
+    b.classList.toggle('active',['log','journey','patterns','cosmos'][i]===tab);
+  });
+  if(tab==='log'){updateLogHeader();}
+  if(tab==='journey'){renderJourney();}
+  if(tab==='patterns'){renderPatterns();}
+  if(tab==='cosmos'){renderCosmos();}
+}
+
+// ══════════════════════════════════════════════
+//  CELEBRATION
+// ══════════════════════════════════════════════
+function celebrate(entry,unlocks){
+  const hit=CELEB[Math.floor(Math.random()*CELEB.length)];
+  const m=getMood(entry.mood);
+  const flash=document.createElement('div');flash.className='cflash';
+  document.body.appendChild(flash);setTimeout(()=>flash.remove(),800);
+
+  const ov=document.getElementById('celebOverlay'),card=document.getElementById('celebCard');
+  document.getElementById('cEmo').textContent=m?m.emoji:hit.emoji;
+  document.getElementById('cMsg').textContent=hit.msg;
+  document.getElementById('cSub').textContent=hit.sub;
+  const cst=document.getElementById('cStreak');
+  const qStreaks=getQuadrantStreaks();
+  const topQ=qStreaks[0];
+  if(state.streak.current>1){
+    cst.textContent=`🔥 ${state.streak.current} day streak!`;
+  } else if(topQ&&topQ.streak>=2){
+    const meta=QUAD_META[topQ.quad];
+    cst.textContent=`${meta.emoji} ${topQ.streak} days in ${meta.label}`;
+  } else if(unlocks.length){
+    cst.textContent=`🏆 ${unlocks[0].name} unlocked!`;
+  } else {
+    cst.textContent='';
+  }
+
+  ['cEmo','cMsg','cSub','cStreak'].forEach(id=>{const el=document.getElementById(id);el.className='';void el.offsetWidth;});
+  document.getElementById('cEmo').className='epop-anim';
+  document.getElementById('cSub').className='sin-anim';
+  document.getElementById('cStreak').className='sin2-anim';
+
+  ov.style.display='block';
+  card.style.transform='translate(-50%,-50%) scale(.5)';card.style.opacity='0';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{card.style.transform='translate(-50%,-50%) scale(1)';card.style.opacity='1';}));
+  launchConfetti();
+  if(celebTO)clearTimeout(celebTO);
+  celebTO=setTimeout(()=>{
+    card.style.transform='translate(-50%,-50%) scale(.88)';card.style.opacity='0';
+    setTimeout(()=>ov.style.display='none',300);
+  },2500);
+}
+
+function launchConfetti(){
+  const cv=document.getElementById('celebCanvas');
+  const W=cv.width=window.innerWidth,H=cv.height=window.innerHeight;
+  const ctx=cv.getContext('2d'),ps=[];
+  for(let i=0;i<75;i++)ps.push({
+    x:Math.random()*W,y:-10-Math.random()*80,
+    vx:(Math.random()-.5)*5,vy:2+Math.random()*4,
+    sz:4+Math.random()*6,rot:Math.random()*360,rspd:(Math.random()-.5)*7,
+    color:CCOLORS[Math.floor(Math.random()*CCOLORS.length)],
+    shape:Math.random()>.4?'rect':'circle',alpha:1,grav:.16
+  });
+  let fr=0;
+  (function draw(){
+    ctx.clearRect(0,0,W,H);let alive=false;
+    ps.forEach(p=>{
+      if(p.alpha<=0)return;
+      p.x+=p.vx;p.y+=p.vy;p.vy+=p.grav;p.rot+=p.rspd;
+      if(p.y>H*.85)p.alpha-=.042;if(p.alpha<0)p.alpha=0;else alive=true;
+      ctx.save();ctx.globalAlpha=p.alpha;ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.color;
+      if(p.shape==='circle'){ctx.beginPath();ctx.arc(0,0,p.sz/2,0,Math.PI*2);ctx.fill();}
+      else ctx.fillRect(-p.sz/2,-p.sz/3,p.sz,p.sz*.55);
+      ctx.restore();
+    });
+    if(alive&&fr<120){fr++;requestAnimationFrame(draw);}else ctx.clearRect(0,0,W,H);
+  })();
+}
+
+// ══════════════════════════════════════════════
+//  ONBOARDING
+// ══════════════════════════════════════════════
+let obCurrent=0;
+const OB_TOTAL=3;
+
+function initOnboarding(){
+  if(localStorage.getItem('cosmic-onboarded'))return;
+  document.getElementById('onboardOverlay').classList.add('active');
+}
+
+function obGoTo(idx){
+  const slides=document.querySelectorAll('.ob-slide');
+  const dots=document.querySelectorAll('.ob-dot');
+  // Exit current
+  slides[obCurrent].classList.remove('active');
+  slides[obCurrent].classList.add('exit');
+  setTimeout(()=>slides[obCurrent].classList.remove('exit'),380);
+  // Enter next
+  obCurrent=idx;
+  slides[obCurrent].classList.add('active');
+  // Dots
+  dots.forEach((d,i)=>d.classList.toggle('active',i===obCurrent));
+  // Button label
+  const btn=document.getElementById('obNextBtn');
+  const skip=document.getElementById('obSkipBtn');
+  if(obCurrent===OB_TOTAL-1){
+    btn.textContent='🌌 Start tracking';
+    skip.style.display='none';
+  } else {
+    btn.textContent='Next →';
+    skip.style.display='';
+  }
+}
+
+function obNext(){
+  if(obCurrent<OB_TOTAL-1){obGoTo(obCurrent+1);}
+  else{obSkip();}
+}
+
+function obSkip(){
+  localStorage.setItem('cosmic-onboarded','1');
+  const ov=document.getElementById('onboardOverlay');
+  ov.style.opacity='0';ov.style.transition='opacity .35s ease';
+  setTimeout(()=>{ov.classList.remove('active');ov.style.opacity='';ov.style.transition='';},360);
+}
+
+// ══════════════════════════════════════════════
+//  QUADRANT STREAKS
+// ══════════════════════════════════════════════
+const QUAD_META={
+  charged:{label:'Charged',emoji:'⚡',color:'#fbbf24',bg:'rgba(251,191,36,.08)',border:'rgba(251,191,36,.3)',msg:'High energy days in a row!'},
+  serene: {label:'Serene', emoji:'🌙',color:'#2dd4bf',bg:'rgba(45,212,191,.08)',border:'rgba(45,212,191,.3)',msg:'Peaceful days in a row'},
+  storming:{label:'Storming',emoji:'🌪️',color:'#fb923c',bg:'rgba(251,146,60,.08)',border:'rgba(251,146,60,.3)',msg:'days in Storming — be gentle with yourself'},
+  fading:  {label:'Fading', emoji:'🌫️',color:'#94a3b8',bg:'rgba(148,163,184,.07)',border:'rgba(148,163,184,.25)',msg:'days in Fading — rest is valid 💜'},
+};
+
+function getQuadrantStreaks(){
+  const today=todayStr();
+  const yest=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());})();
+  const results=[];
+
+  Object.keys(QUAD_META).forEach(q=>{
+    // All unique dates where this quadrant was logged, sorted newest first
+    const qDates=[...new Set(
+      state.entries.filter(e=>getMood(e.mood)?.quad===q).map(e=>e.date)
+    )].sort().reverse();
+
+    if(!qDates.length)return;
+    // Must start from today or yesterday to be a current streak
+    if(qDates[0]!==today&&qDates[0]!==yest)return;
+
+    let streak=0;
+    let check=new Date(qDates[0]+'T12:00:00');
+    for(let i=0;i<365;i++){
+      const ds=check.getFullYear()+'-'+pad(check.getMonth()+1)+'-'+pad(check.getDate());
+      if(qDates.includes(ds)){streak++;check.setDate(check.getDate()-1);}
+      else break;
+    }
+    if(streak>=2)results.push({quad:q,streak});
+  });
+
+  return results.sort((a,b)=>b.streak-a.streak);
+}
+
+function renderQuadStreakBanner(){
+  const wrap=document.getElementById('quadStreakWrap');
+  if(!wrap)return;
+  const streaks=getQuadrantStreaks();
+  if(!streaks.length){wrap.innerHTML='';return;}
+
+  // Show the most impressive streak
+  const top=streaks[0];
+  const meta=QUAD_META[top.quad];
+  wrap.innerHTML=`
+    <div class="qs-banner" style="background:${meta.bg};border-color:${meta.border}">
+      <span class="qs-emo">${meta.emoji}</span>
+      <div class="qs-info">
+        <div class="qs-main" style="color:${meta.color}">${meta.label} streak!</div>
+        <div class="qs-sub">${top.streak} ${meta.msg}</div>
+      </div>
+      <div class="qs-count" style="color:${meta.color}">${top.streak}🔥</div>
+    </div>`;
+}
+
+
+function init(){
+  load();
+  drawBgStars();
+  renderMoodGrid();
+  renderEorbs();
+  renderTags();
+  renderStreak();
+  updateLogHeader();
+  renderQuadStreakBanner();
+  updateTime();
+  setInterval(updateTime,30000);
+  initOnboarding();
+  checkWeeklySummary();
+}
+document.addEventListener('DOMContentLoaded',init);
+window.addEventListener('resize',()=>{
+  drawBgStars();
+  // Redraw constellation on resize/rotation so it fills the new canvas dimensions
+  if(currentTab==='cosmos')requestAnimationFrame(()=>requestAnimationFrame(()=>drawConstellation()));
+});
+</script>
+<!-- ── SHARE IMAGE MODAL ── -->
+<div id="shareModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:16px;" onclick="if(event.target===this)this.style.display='none'">
+  <img id="shareImg" style="max-width:min(100%,520px);max-height:65vh;border-radius:16px;display:block;box-shadow:0 0 60px rgba(167,139,250,.3);" alt="Your mood constellation">
+  <div style="text-align:center;line-height:1.7;">
+    <div style="color:#c4b5fd;font-family:'Fredoka One',cursive;font-size:16px;margin-bottom:4px;">Your constellation is ready ✨</div>
+    <div style="color:rgba(255,255,255,.5);font-size:12px;font-weight:700;">📱 iPhone: long-press the image → Save to Photos<br>🤖 Android: long-press → Download image<br>🖥️ Desktop: right-click → Save image as…</div>
+  </div>
+  <button onclick="const a=document.createElement('a');a.href=document.getElementById('shareImg').src;a.download='cosmic-mood-DreamsToDone.png';a.click();" style="padding:11px 32px;border-radius:100px;border:none;background:linear-gradient(135deg,#7c3aed,#a855f7,#ec4899);color:#fff;font-family:'Fredoka One',cursive;font-size:15px;cursor:pointer;">⬇️ Save image</button>
+  <button onclick="document.getElementById('shareModal').style.display='none'" style="padding:11px 32px;border-radius:100px;border:1.5px solid rgba(255,255,255,.2);background:none;color:rgba(255,255,255,.6);font-family:'Fredoka One',cursive;font-size:15px;cursor:pointer;">Close</button>
+</div>
+
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
