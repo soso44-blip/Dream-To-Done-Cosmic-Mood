@@ -10,11 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#050312">
 <title>Cosmic Mood — ADHD Tracker</title>
-<link rel="manifest" href="manifest-mood.json">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -558,6 +554,13 @@ header{
     <!-- LOG -->
     <div id="panel-log" class="panel active">
       <div class="pscroll">
+        <div id="backupReminder" style="display:none;margin:2px 0 16px;padding:14px 15px;border-radius:16px;border:1px solid rgba(167,139,250,.28);background:linear-gradient(135deg,rgba(167,139,250,.10),rgba(244,114,182,.07))">
+          <div style="font-size:13px;font-weight:800;color:var(--text);line-height:1.55;margin-bottom:11px">🌙 Your cosmos lives only on this device. It's been a little while since your last backup — want to save a copy, just in case?</div>
+          <div style="display:flex;gap:9px;flex-wrap:wrap">
+            <button onclick="exportData()" style="flex:1;min-width:120px;padding:10px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-family:'Nunito',sans-serif;font-weight:900;font-size:13px;cursor:pointer">Save a backup</button>
+            <button onclick="snoozeBackupReminder()" style="flex:0 0 auto;padding:10px 16px;border-radius:12px;border:1px solid var(--border2);background:none;color:var(--text2);font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;cursor:pointer">Maybe later</button>
+          </div>
+        </div>
         <div class="log-q" id="logQ">How are you feeling<br>right now?</div>
         <div class="log-time" id="logTime"></div>
         <div id="quadStreakWrap"></div>
@@ -622,6 +625,18 @@ header{
       <div class="pscroll">
         <h2 class="ptitle">Your Journey</h2>
         <div id="journeyContent"></div>
+
+        <!-- BACKUP & RESTORE -->
+        <div style="margin-top:26px;padding:18px;border-radius:20px;border:1px solid var(--border);background:var(--surface)">
+          <div style="font-family:'Fredoka One',cursive;font-size:15px;color:var(--text);margin-bottom:8px">💾 Backup &amp; Restore</div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--text2);line-height:1.6;margin-bottom:15px">
+            Your entries live only on this device. <strong style="color:var(--text)">Export</strong> saves everything to one small file — keep it somewhere safe (email it to yourself, or save it to your cloud). If your browser data is ever cleared, or you switch phones, use <strong style="color:var(--text)">Import</strong> to bring your whole cosmos back. A backup every couple of weeks keeps your stars safe. 🌙
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button onclick="exportData()" style="flex:1;min-width:130px;padding:13px;border-radius:14px;border:none;background:linear-gradient(135deg,#7c3aed,#a855f7,#ec4899);color:#fff;font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer">⬇️ Export backup</button>
+            <label style="flex:1;min-width:130px;padding:13px;border-radius:14px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text);font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer;text-align:center">⬆️ Import backup<input type="file" accept="application/json,.json" onchange="importData(this)" style="display:none"></label>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -650,7 +665,7 @@ header{
     <button class="tabbtn" onclick="switchTab('patterns')"><span class="tabico">🔭</span><span class="tablbl">Patterns</span></button>
     <button class="tabbtn" onclick="switchTab('cosmos')"><span class="tabico">🌌</span><span class="tablbl">Cosmos</span></button>
   </nav>
-  <div class="app-brand">© DREAMSTODONE</div>
+  <a class="app-brand" href="https://dreamstodone.etsy.com" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:block;cursor:pointer">© DREAMSTODONE</a>
 </div>
 
 <!-- ── WEEKLY SUMMARY ── -->
@@ -866,6 +881,70 @@ let selMood=null, selEnergy=3, selTags=new Set(), celebTO=null;
 
 function save(){localStorage.setItem('cosmic-mood-v1',JSON.stringify({entries:state.entries,streak:state.streak,achievements:state.achievements}));}
 function load(){try{const d=JSON.parse(localStorage.getItem('cosmic-mood-v1')||'{}');if(d.entries)state.entries=d.entries;if(d.streak)state.streak=d.streak;if(d.achievements)state.achievements=d.achievements;}catch(e){}}
+
+// ── BACKUP: EXPORT / IMPORT / REMINDER ──
+function exportData(){
+  try{
+    const payload={app:'cosmic-mood',version:1,exported:new Date().toISOString(),data:{entries:state.entries,streak:state.streak,achievements:state.achievements}};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='cosmic-mood-backup-'+todayStr()+'.json';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    localStorage.setItem('cosmic-last-backup',todayStr());
+    hideBackupReminder();
+  }catch(e){alert("Sorry \u2014 the backup couldn't be created. Please try again.");}
+}
+function importData(input){
+  const file=input.files&&input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const parsed=JSON.parse(ev.target.result);
+      const d=(parsed&&parsed.data&&typeof parsed.data==='object')?parsed.data:parsed;
+      if(!d||typeof d!=='object'||!Array.isArray(d.entries))throw new Error('invalid');
+      if(!confirm('This will replace everything currently in Cosmic Mood with the contents of this backup file. Continue?')){input.value='';return;}
+      state.entries=d.entries;
+      state.streak=(d.streak&&typeof d.streak==='object')?{current:d.streak.current||0,longest:d.streak.longest||0,lastDate:d.streak.lastDate||null}:{current:0,longest:0,lastDate:null};
+      state.achievements=Array.isArray(d.achievements)?d.achievements:[];
+      save();
+      renderStreak();updateLogHeader();renderQuadStreakBanner();
+      if(currentTab==='journey')renderJourney();
+      else if(currentTab==='patterns')renderPatterns();
+      else if(currentTab==='cosmos')renderCosmos();
+      localStorage.setItem('cosmic-last-backup',todayStr());
+      hideBackupReminder();
+      alert('Your cosmos was restored. \U0001f30c');
+    }catch(e){
+      alert("That file couldn't be read as a valid Cosmic Mood backup. Please choose a file you exported from this app.");
+    }
+    input.value='';
+  };
+  reader.onerror=function(){alert("Sorry \u2014 that file couldn't be read.");input.value='';};
+  reader.readAsText(file);
+}
+function hideBackupReminder(){const el=document.getElementById('backupReminder');if(el)el.style.display='none';}
+function snoozeBackupReminder(){
+  const t=new Date();t.setDate(t.getDate()+7);
+  localStorage.setItem('cosmic-backup-snooze',t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate()));
+  hideBackupReminder();
+}
+function maybeShowBackupReminder(){
+  try{
+    if(!state.entries||state.entries.length<8)return;
+    const today=todayStr();
+    const snooze=localStorage.getItem('cosmic-backup-snooze');
+    if(snooze&&snooze>=today)return;
+    const last=localStorage.getItem('cosmic-last-backup');
+    let due=true;
+    if(last){const days=(new Date(today+'T00:00:00')-new Date(last+'T00:00:00'))/86400000;due=days>=14;}
+    if(!due)return;
+    const el=document.getElementById('backupReminder');
+    if(el)el.style.display='block';
+  }catch(e){}
+}
 function todayStr(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function pad(n){return String(n).padStart(2,'0');}
 function getMood(id){
@@ -2081,6 +2160,7 @@ function init(){
   setInterval(updateTime,30000);
   initOnboarding();
   checkWeeklySummary();
+  setTimeout(()=>{try{if(!document.getElementById('weeklyOverlay').classList.contains('open'))maybeShowBackupReminder();}catch(e){}},1200);
 }
 document.addEventListener('DOMContentLoaded',init);
 window.addEventListener('resize',()=>{
